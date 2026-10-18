@@ -50,8 +50,7 @@
       "desc": "Lecteur vidéo et audio universel.",
       "desc_en": "Universal video and audio player.",
       "source": {
-        "index": "https://get.videolan.org/vlc-android/last/",
-        "pattern": "VLC-Android-[\\d.]+-{abi}\\.apk"
+        "url": "https://get.videolan.org/vlc-android/last/VLC-Android-3.7.1-armeabi-v7a.apk"
       }
     },
     {
