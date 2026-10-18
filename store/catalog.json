@@ -43,6 +43,7 @@
     },
     {
       "id": "vlc",
+      "icon": "https://upload.wikimedia.org/wikipedia/commons/3/38/VLC_icon.png",
       "name": "VLC Media Player",
       "category": "media",
       "package": "org.videolan.vlc",
