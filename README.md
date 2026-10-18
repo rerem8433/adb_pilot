@@ -49,6 +49,7 @@ ADB Pilot est donc une **réécriture complète pour Linux**, qui reprend l'ergo
 ## Captures d'écran
 
 **Applications** : noms réels, icônes et versions, actions groupées et assistant debloat
+
 ![Onglet Applications](screenshots/Applications.png)
 
 **Store** : magasin d'applications pour installer en un clic une sélection d'« incontournables ».
@@ -261,6 +262,7 @@ ADB Pilot is a **complete rewrite for Linux** that follows the workflow of ADB A
 ## Screenshots
 
 **Applications** : Reals names, package names, icons + versions + sizes, Debloat assistant
+
 ![Apps tab](screenshots/Applications.png)
 
 **Tools** (*Outils*): device info (CPU, RAM, storage, real Android version), with scrcpy running alongside.
