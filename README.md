@@ -2,6 +2,10 @@
 
 **Gestionnaire d'appareils Android via ADB pour Linux, natif — sans Wine.**
 
+Attention
+
+DISCLAIMER: A utiliser avec précaution. Je ne suis pas responsable de quelconque problème qui surviendrait suite à un debloat trop agressif et des conséquences qui pourraient survenir sur votre équipement.
+
 ADB Pilot permet de gérer un téléphone ou une box Android TV depuis Ubuntu / Linux Mint : lister les applications avec leurs noms, icônes et versions, désactiver ou désinstaller le bloatware, installer des APK / XAPK / APKS / APKM, sauvegarder des applications, suivre les processus, piloter l'écran avec scrcpy et ouvrir une console adb / fastboot.
 
 Développé par **ParadoxXx Squad** — [github.com/rerem8433/adb_pilot](https://github.com/rerem8433/adb_pilot)
@@ -202,6 +206,10 @@ Copyright © 2026 ParadoxXx Squad
 # ADB Pilot — English
 
 **Native Linux Android device manager over ADB — no Wine needed.**
+
+Warning
+
+DISCLAIMER: Use at your own risk. We're not responsible for anything that could happen to your devices.
 
 ADB Pilot lets you manage an Android phone or Android TV box from Ubuntu / Linux Mint. You can:
 - list apps with their real names, icons and versions;
