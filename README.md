@@ -8,7 +8,7 @@ Développé par **ParadoxXx Squad** — [github.com/rerem8433/adb_pilot](https:/
 
 🇫🇷 [Français](#adb-pilot) · 🇬🇧 [English](#adb-pilot--english)
 
-> Langue de l'interface : **français** uniquement pour le moment.
+> Interface disponible en **français** et en **anglais** (Paramètres → Interface → Langue).
 
 <p align="center">
   <img src="screenshots/Applications.png" alt="ADB Pilot — liste des applications" width="900"><br>
@@ -31,7 +31,7 @@ ADB Pilot est donc une **réécriture complète pour Linux**, qui reprend l'ergo
 - Liste des applications avec **nom réel, icône et version**, sans rien installer sur l'appareil. Les infos sont lues directement dans les APK (manifeste, `resources.arsc`), alors qu'ADB AppControl passe par une appli compagnon.
 - Filtres Toutes / Système / Utilisateur / Désactivées / Supprimées, recherche, tri par colonne.
 - Actions groupées : désactiver, désinstaller (utilisateur 0), effacer les données, effacer le cache, sauvegarder le fichier d'installation. Au clic droit : activer, restaurer, forcer l'arrêt, permissions, infos détaillées.
-- **Assistant debloat** à 4 niveaux (Basique, Sûr, Moyen, Maximal), basé sur des listes texte modifiables.
+- **Assistant debloat** à 4 niveaux (Basique, Sûr, Moyen, Maximal), avec **protection automatique des téléphones et tablettes**.
 - Presets (listes d'applis cochées) à enregistrer et recharger.
 
 **Installation**
@@ -41,9 +41,11 @@ ADB Pilot est donc une **réécriture complète pour Linux**, qui reprend l'ergo
 
 **Outils**
 - Infos de l'appareil : processeur (marque et modèle), RAM, stockage, et **vraie version d'Android**. Celle-ci est lue dans `framework-res.apk`, ce qui permet de repérer un `build.prop` falsifié.
-- Captures d'écran, enregistrement vidéo, touches (volume, power, accueil…), redémarrage (recovery, bootloader…).
-- **scrcpy** intégré : choix de la résolution et enregistrement vidéo de la session.
-- Connexion Wi-Fi (IP + port, historique), passage USB → Wi-Fi, appairage Android 11+.
+- **Télécommande Android TV** à l'écran : pavé directionnel, accueil, retour, récents, volume, muet, capture d'écran, et bouton d'alimentation (éteindre, redémarrer, recovery, bootloader…).
+- **scrcpy** intégré : choix de la résolution et enregistrement vidéo de la session (le son nécessite Android 11+).
+- Connexion Wi-Fi (IP + port, historique avec le nom des boîtiers), passage USB → Wi-Fi, appairage Android 11+. Un seul appareil connecté à la fois.
+
+**Store** : installation en un clic d'applications utiles (SmartTube, VLC, Projectivy Launcher…), rangées par rubriques. L'APK est téléchargé sur le PC puis installé sur le boîtier ; la liste est mise à jour automatiquement depuis ce dépôt.
 
 **Processus** : applications en cours, RAM en %, application au premier plan, forcer l'arrêt.
 
@@ -51,7 +53,7 @@ ADB Pilot est donc une **réécriture complète pour Linux**, qui reprend l'ergo
 
 ## Captures d'écran
 
-**Outils** : infos de l'appareil (processeur, RAM, stockage, vraie version d'Android), captures, touches, et scrcpy lancé à côté.
+**Outils** : infos de l'appareil (processeur, RAM, stockage, vraie version d'Android) et scrcpy lancé à côté.
 
 ![Onglet Outils avec scrcpy](screenshots/Outils.png)
 
@@ -156,13 +158,15 @@ Tout est centralisé dans `~/ADB_Pilot/` (sans espace, pratique en ligne de comm
 | `~/ADB_Pilot/videos/` | Enregistrements d'écran et sessions scrcpy |
 | `~/ADB_Pilot/install/` | Ta bibliothèque d'APK à installer (+ un sous-dossier par appareil) |
 | `~/ADB_Pilot/apps/<appareil>/` | Sauvegardes : `nomappli_(paquet)_version.apk` (`.apks` pour les applis en plusieurs fichiers) |
-| `~/ADB_Pilot/debloat/` | Listes de debloat `debloat0.db` à `debloat3.db` |
+| `~/ADB_Pilot/store/` | APK téléchargés depuis l'onglet Store (gardés pour tes autres boîtiers) |
 
 La configuration est dans `~/.config/adbpilot/` et le cache des icônes dans `~/.cache/adbpilot/`.
 
 ## Listes de debloat
 
-Les fichiers `~/ADB_Pilot/debloat/debloat0.db` à `debloat3.db` sont de simples fichiers texte : un nom de paquet par ligne, `#` pour les commentaires. Ils sont relus automatiquement après modification.
+Les listes `debloat0.db` à `debloat3.db` sont maintenues dans le dossier [`debloat/`](debloat/) de ce dépôt et mises à jour automatiquement au lancement d'ADB Pilot (une copie est intégrée à l'application pour fonctionner hors ligne). Rien n'est stocké ni modifiable côté utilisateur, ce qui évite d'appliquer par erreur une liste obsolète ou trop agressive.
+
+**Protection des téléphones** : ADB Pilot détecte si l'appareil est une box TV. Sur un téléphone ou une tablette, les composants vitaux (contacts, téléphonie, SMS, horloge, clavier, Play Store, services Google…) ne sont jamais cochés par l'assistant, quel que soit le niveau, et une alerte s'affiche si tu essaies de les désactiver à la main.
 
 Les niveaux sont **cumulatifs** :
 
@@ -214,7 +218,7 @@ ADB Pilot lets you manage an Android phone or Android TV box from Ubuntu / Linux
 
 Developed by **ParadoxXx Squad** — [github.com/rerem8433/adb_pilot](https://github.com/rerem8433/adb_pilot)
 
-> User interface language: **French** only for now.
+> User interface available in **French** and **English** (Paramètres / Settings → Interface → Language).
 
 <p align="center">
   <img src="screenshots/Applications.png" alt="ADB Pilot — application list" width="900"><br>
@@ -236,7 +240,7 @@ ADB Pilot is a **complete rewrite for Linux** that follows the workflow of ADB A
 - Filters (All / System / User / Disabled / Uninstalled), search, sortable columns.
 - Batch actions: disable, uninstall (user 0), clear data, clear cache, back up the installation file.
 - Right-click actions: enable, restore, force stop, permissions, detailed info.
-- 4-level **debloat wizard** (Basic, Safe, Medium, Maximum) based on editable text lists.
+- 4-level **debloat wizard** (Basic, Safe, Medium, Maximum), with **automatic protection of phones and tablets**.
 - Presets: save and reload sets of checked apps.
 
 **Installation**
@@ -246,9 +250,11 @@ ADB Pilot is a **complete rewrite for Linux** that follows the workflow of ADB A
 
 **Tools**
 - Device info: CPU (brand and model), RAM, storage and the **real Android version**. The version is read from `framework-res.apk`, so a tampered `build.prop` is detected.
-- Screenshots, screen recording, hardware keys (volume, power, home…), reboot to recovery / bootloader…
-- Built-in **scrcpy** launcher with resolution choice and session recording.
-- Wi-Fi connection (IP + port, history), USB → Wi-Fi switch, Android 11+ pairing.
+- On-screen **Android TV remote**: D-pad, home, back, recents, volume, mute, screenshot, and a power button (shut down, reboot, recovery, bootloader…).
+- Built-in **scrcpy** launcher with resolution choice and session recording (audio requires Android 11+).
+- Wi-Fi connection (IP + port, history with box names), USB → Wi-Fi switch, Android 11+ pairing. One device connected at a time.
+
+**Store**: one-click install of useful apps (SmartTube, VLC, Projectivy Launcher…), sorted by category. The APK is downloaded to the PC, then installed on the box; the list is updated automatically from this repository.
 
 **Processes**: running apps, RAM usage in %, foreground app, force stop.
 
@@ -256,7 +262,7 @@ ADB Pilot is a **complete rewrite for Linux** that follows the workflow of ADB A
 
 ## Screenshots
 
-**Tools** (*Outils*): device info (CPU, RAM, storage, real Android version), screenshots, hardware keys, with scrcpy running alongside.
+**Tools** (*Outils*): device info (CPU, RAM, storage, real Android version), with scrcpy running alongside.
 
 ![Tools tab with scrcpy](screenshots/Outils.png)
 
@@ -361,13 +367,15 @@ Everything lives in `~/ADB_Pilot/` (no spaces, easy to use from a terminal):
 | `~/ADB_Pilot/videos/` | Screen recordings and scrcpy sessions |
 | `~/ADB_Pilot/install/` | Your APK library (+ one sub-folder per device) |
 | `~/ADB_Pilot/apps/<device>/` | Backups: `appname_(package)_version.apk` (`.apks` for split apps) |
-| `~/ADB_Pilot/debloat/` | Debloat lists `debloat0.db` to `debloat3.db` |
+| `~/ADB_Pilot/store/` | APKs downloaded from the Store tab (kept for your other boxes) |
 
 Settings are stored in `~/.config/adbpilot/` and the icon cache in `~/.cache/adbpilot/`.
 
 ## Debloat lists
 
-`~/ADB_Pilot/debloat/debloat0.db` to `debloat3.db` are plain text files: one package name per line, `#` for comments. They are reloaded automatically after you edit them.
+The `debloat0.db` to `debloat3.db` lists are maintained in this repository's [`debloat/`](debloat/) folder and updated automatically when ADB Pilot starts (a copy is bundled for offline use). Nothing is stored or editable on the user side, so an outdated or overly aggressive list can't be applied by mistake.
+
+**Phone protection**: ADB Pilot detects whether the device is a TV box. On a phone or tablet, vital components (contacts, telephony, SMS, clock, keyboard, Play Store, Google services…) are never checked by the wizard, whatever the level, and a warning is shown if you try to disable them manually.
 
 Levels are **cumulative**:
 
