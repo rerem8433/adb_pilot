@@ -2,10 +2,6 @@
 
 **Gestionnaire d'appareils Android via ADB pour Linux, natif — sans Wine.**
 
-Attention
-
-DISCLAIMER: A utiliser avec précaution. Je ne suis pas responsable de quelconque problème qui surviendrait suite à un debloat trop agressif et des conséquences qui pourraient survenir sur votre équipement.
-
 ADB Pilot permet de gérer un téléphone ou une box Android TV depuis Ubuntu / Linux Mint : lister les applications avec leurs noms, icônes et versions, désactiver ou désinstaller le bloatware, installer des APK / XAPK / APKS / APKM, sauvegarder des applications, suivre les processus, piloter l'écran avec scrcpy et ouvrir une console adb / fastboot.
 
 Développé par **ParadoxXx Squad** — [github.com/rerem8433/adb_pilot](https://github.com/rerem8433/adb_pilot)
@@ -56,6 +52,10 @@ ADB Pilot est donc une **réécriture complète pour Linux**, qui reprend l'ergo
 **Console** : commandes `adb` / `fastboot`, shell interactif, logcat, commandes rapides. Taper `shell` ouvre un terminal.
 
 ## Captures d'écran
+
+**Store**: one-click installer for a selection of must-have apps chosen by the developer.
+
+![Store tab](screenshots/Store.png)
 
 **Outils** : infos de l'appareil (processeur, RAM, stockage, vraie version d'Android) et scrcpy lancé à côté.
 
@@ -211,10 +211,6 @@ Copyright © 2026 ParadoxXx Squad
 
 **Native Linux Android device manager over ADB — no Wine needed.**
 
-Warning
-
-DISCLAIMER: Use at your own risk. We're not responsible for anything that could happen to your devices.
-
 ADB Pilot lets you manage an Android phone or Android TV box from Ubuntu / Linux Mint. You can:
 - list apps with their real names, icons and versions;
 - disable or uninstall bloatware;
@@ -273,6 +269,10 @@ ADB Pilot is a **complete rewrite for Linux** that follows the workflow of ADB A
 **Tools** (*Outils*): device info (CPU, RAM, storage, real Android version), with scrcpy running alongside.
 
 ![Tools tab with scrcpy](screenshots/Outils.png)
+
+**Store** : (*Store*): AppStore to direct install some apps chosen by developper.
+
+![Store tab](screenshots/Store.png)
 
 **Processes** (*Processus*): running apps, RAM usage in %, foreground app (green ▶).
 
