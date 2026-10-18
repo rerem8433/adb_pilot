@@ -1,4 +1,8 @@
-# ADB Pilot
+<p align="center">
+  <img src="screenshots/icon.png" alt="ADB Pilot" width="128">
+</p>
+
+<h1 align="center">ADB Pilot</h1>
 
 **Gestionnaire d'appareils Android via ADB pour Linux, natif — sans Wine.**
 
