@@ -1,0 +1,179 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "id": "media",
+      "name": "Multimédia",
+      "name_en": "Multimedia"
+    },
+    {
+      "id": "tools",
+      "name": "Utilitaires",
+      "name_en": "Utilities"
+    },
+    {
+      "id": "launchers",
+      "name": "Launchers",
+      "name_en": "Launchers"
+    }
+  ],
+  "apps": [
+    {
+      "id": "smarttube",
+      "name": "SmartTube",
+      "category": "media",
+      "package": "org.smarttube.stable",
+      "desc": "YouTube sans pub pour Android TV, avec SponsorBlock.",
+      "desc_en": "Ad-free YouTube for Android TV, with SponsorBlock.",
+      "source": {
+        "url": "https://github.com/yuliskov/SmartTube/releases/download/latest/smarttube_stable.apk"
+      }
+    },
+    {
+      "id": "tizentube",
+      "name": "TizenTube Cobalt",
+      "category": "media",
+      "desc": "YouTube TV (moteur Cobalt) sans pub, avec SponsorBlock.",
+      "desc_en": "Ad-free YouTube TV (Cobalt engine), with SponsorBlock.",
+      "source": {
+        "github": "reisxd/TizenTubeCobalt",
+        "asset": "^cobalt-arm\\.apk$",
+        "asset_arm64": "^cobalt-arm64\\.apk$"
+      }
+    },
+    {
+      "id": "vlc",
+      "name": "VLC Media Player",
+      "category": "media",
+      "package": "org.videolan.vlc",
+      "desc": "Lecteur vidéo et audio universel.",
+      "desc_en": "Universal video and audio player.",
+      "source": {
+        "index": "https://get.videolan.org/vlc-android/last/",
+        "pattern": "VLC-Android-[\\d.]+-{abi}\\.apk"
+      }
+    },
+    {
+      "id": "aptoidetv",
+      "name": "AptoideTV",
+      "category": "tools",
+      "package": "cm.aptoidetv.pt",
+      "desc": "Magasin d'applications alternatif pour Android TV.",
+      "desc_en": "Alternative app store for Android TV.",
+      "source": {
+        "url": "https://pool.apk.aptoide.com/carolyne-silva/cm-aptoidetv-pt-542-72049303-6212d8ef0991eaf05b32f8f0141dadb8.apk"
+      }
+    },
+    {
+      "id": "anydesk",
+      "name": "AnyDesk",
+      "category": "tools",
+      "package": "com.anydesk.anydeskandroid",
+      "desc": "Prise en main et assistance à distance.",
+      "desc_en": "Remote control and remote support.",
+      "source": {
+        "url": "http://download.anydesk.com/anydesk.apk"
+      }
+    },
+    {
+      "id": "downloader",
+      "name": "Downloader (AFTVnews)",
+      "category": "tools",
+      "package": "com.esaba.downloader",
+      "desc": "Navigateur + téléchargeur d'APK par code court.",
+      "desc_en": "Browser + APK downloader using short codes.",
+      "source": {
+        "page": "https://d.apkpure.com/b/XAPK/com.esaba.downloader?version=latest"
+      }
+    },
+    {
+      "id": "via",
+      "name": "VIA Browser",
+      "category": "tools",
+      "package": "mark.via.gp",
+      "desc": "Navigateur web ultra léger.",
+      "desc_en": "Ultra-light web browser.",
+      "source": {
+        "url": "Https://D.Apkpure.Com/B/Apk/Mark.Via.Gp?Version=Latest"
+      }
+    },
+    {
+      "id": "browser_atv",
+      "name": "Browser for ATV",
+      "category": "tools",
+      "desc": "Navigateur web pensé pour la télécommande.",
+      "desc_en": "Web browser designed for the remote control.",
+      "source": {
+        "url": "https://www.tvbox.one/box-files/Browser-for-TV-2.18.02.apk"
+      }
+    },
+    {
+      "id": "localsend",
+      "name": "LocalSend",
+      "category": "tools",
+      "package": "org.localsend.localsend_app",
+      "desc": "Partage de fichiers en réseau local, sans Internet.",
+      "desc_en": "File sharing over the local network, no Internet needed.",
+      "source": {
+        "github": "localsend/localsend",
+        "asset": "android-google-play\\.apk$"
+      }
+    },
+    {
+      "id": "fast",
+      "name": "FAST Speed Test",
+      "category": "tools",
+      "package": "com.netflix.Speedtest",
+      "desc": "Test de débit Internet par Netflix.",
+      "desc_en": "Internet speed test by Netflix.",
+      "unofficial": true,
+      "source": {
+        "url": "https://d.apkpure.com/b/APK/com.netflix.Speedtest?version=latest"
+      }
+    },
+    {
+      "id": "projectivy",
+      "name": "Projectivy Launcher",
+      "category": "launchers",
+      "package": "com.spocky.projengmenu",
+      "desc": "Launcher épuré et très personnalisable.",
+      "desc_en": "Clean, highly customizable launcher.",
+      "source": {
+        "github": "spocky/miproja1",
+        "asset": "^ProjectivyLauncher-.*\\.apk$"
+      }
+    },
+    {
+      "id": "monet",
+      "name": "Monet Launcher",
+      "category": "launchers",
+      "desc": "Launcher moderne aux couleurs dynamiques.",
+      "desc_en": "Modern launcher with dynamic colors.",
+      "source": {
+        "github": "Klevico/Monet-Launcher",
+        "asset": "\\.apk$"
+      }
+    },
+    {
+      "id": "appdrawer",
+      "name": "App Drawer",
+      "category": "launchers",
+      "package": "org.cyanogenmod.appdrawer",
+      "desc": "Tiroir d'applications : liste toutes les applis installées.",
+      "desc_en": "App drawer: lists every installed app.",
+      "source": {
+        "url": "https://storage.appmeme.com/org.cyanogenmod.appdrawer--1.apk"
+      }
+    },
+    {
+      "id": "lmtduk",
+      "name": "Launcher Manager (TDUK)",
+      "category": "launchers",
+      "desc": "Change ou désactive le launcher par défaut.",
+      "desc_en": "Change or disable the default launcher.",
+      "source": {
+        "url": "https://www.dropbox.com/scl/fi/dfwm10jav29vtimmxmhvg/LMTDUK_119.apk?rlkey=76efp07whne8szwllweci44pl&dl=1"
+      }
+    }
+  ]
+}
