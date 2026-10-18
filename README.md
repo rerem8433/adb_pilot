@@ -10,11 +10,6 @@ Développé par **ParadoxXx Squad** — [github.com/rerem8433/adb_pilot](https:/
 
 > Interface disponible en **français** et en **anglais** (Paramètres → Interface → Langue).
 
-<p align="center">
-  <img src="screenshots/Applications.png" alt="ADB Pilot — liste des applications" width="900"><br>
-  <em>Onglet Applications : noms réels, icônes et versions, actions groupées et assistant debloat</em>
-</p>
-
 ---
 
 ## Pourquoi ce projet ?
@@ -53,9 +48,12 @@ ADB Pilot est donc une **réécriture complète pour Linux**, qui reprend l'ergo
 
 ## Captures d'écran
 
-**Store**: one-click installer for a selection of must-have apps chosen by the developer.
+**Applications** : noms réels, icônes et versions, actions groupées et assistant debloat
+![Onglet Applications](screenshots/Applications.png)
 
-![Store tab](screenshots/Store.png)
+**Store** : magasin d'applications pour installer en un clic une sélection d'« incontournables ».
+
+![Onglet Store](screenshots/Store.png)
 
 **Outils** : infos de l'appareil (processeur, RAM, stockage, vraie version d'Android) et scrcpy lancé à côté.
 
@@ -265,6 +263,9 @@ ADB Pilot is a **complete rewrite for Linux** that follows the workflow of ADB A
 **Console**: `adb` / `fastboot` commands, interactive shell, logcat, quick commands. Typing `shell` opens a terminal.
 
 ## Screenshots
+
+**Applications** : Reals names, package names, icons + versions + sizes, Debloat assistant
+![Apps tab](screenshots/Applications.png)
 
 **Tools** (*Outils*): device info (CPU, RAM, storage, real Android version), with scrcpy running alongside.
 
