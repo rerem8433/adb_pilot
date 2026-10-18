@@ -67,6 +67,7 @@
     },
     {
       "id": "anydesk",
+      "icon": "https://static.vecteezy.com/system/resources/previews/069/146/530/non_2x/anydesk-app-icon-on-transparent-background-free-png.png",
       "name": "AnyDesk",
       "category": "tools",
       "package": "com.anydesk.anydeskandroid",
@@ -78,6 +79,7 @@
     },
     {
       "id": "downloader",
+      "icon": "https://m.media-amazon.com/images/I/31KVvZnHbuL.png",
       "name": "Downloader (AFTVnews)",
       "category": "tools",
       "package": "com.esaba.downloader",
@@ -89,6 +91,7 @@
     },
     {
       "id": "via",
+      "icon": "https://upload.wikimedia.org/wikipedia/commons/b/b9/Via_Browser_logo.png",
       "name": "VIA Browser",
       "category": "tools",
       "package": "mark.via.gp",
@@ -157,6 +160,7 @@
     },
     {
       "id": "appdrawer",
+      "icon": "https://e7.pngegg.com/pngimages/922/762/png-clipart-sony-xperia-z5-compact-sony-xperia-z3-sony-xperia-z4-tablet-app-drawer-angle-drawer-thumbnail.png",
       "name": "App Drawer",
       "category": "launchers",
       "package": "org.cyanogenmod.appdrawer",
@@ -168,6 +172,7 @@
     },
     {
       "id": "lmtduk",
+      "icon": "https://assets.appmeme.com/com.wolf.google.lm--103-icon.png",
       "name": "Launcher Manager (TDUK)",
       "category": "launchers",
       "desc": "Change ou désactive le launcher par défaut.",
