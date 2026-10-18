@@ -10,6 +10,11 @@ Développé par **ParadoxXx Squad** — [github.com/rerem8433/adb_pilot](https:/
 
 > Langue de l'interface : **français** uniquement pour le moment.
 
+<p align="center">
+  <img src="screenshots/Applications.png" alt="ADB Pilot — liste des applications" width="900"><br>
+  <em>Onglet Applications : noms réels, icônes et versions, actions groupées et assistant debloat</em>
+</p>
+
 ---
 
 ## Pourquoi ce projet ?
@@ -44,6 +49,24 @@ ADB Pilot est donc une **réécriture complète pour Linux**, qui reprend l'ergo
 
 **Console** : commandes `adb` / `fastboot`, shell interactif, logcat, commandes rapides. Taper `shell` ouvre un terminal.
 
+## Captures d'écran
+
+**Outils** : infos de l'appareil (processeur, RAM, stockage, vraie version d'Android), captures, touches, et scrcpy lancé à côté.
+
+![Onglet Outils avec scrcpy](screenshots/Outils.png)
+
+**Processus** : applications en cours, RAM en %, application au premier plan (▶ en vert).
+
+![Onglet Processus](screenshots/Processus.png)
+
+**Console** : commandes adb / fastboot, shell, logcat, et la sortie de scrcpy.
+
+![Onglet Console](screenshots/Console.png)
+
+**À propos** : version, crédits et dossiers utilisés.
+
+![Onglet À propos](screenshots/About.png)
+
 ## Compatibilité
 
 Le paquet `.deb` est prévu pour les distributions **64 bits (amd64)** qui ont au minimum **glibc 2.34** et **Python 3.10**.
@@ -51,7 +74,7 @@ Le paquet `.deb` est prévu pour les distributions **64 bits (amd64)** qui ont a
 | Distribution | Statut |
 |---|---|
 | Ubuntu 22.04 LTS, 24.04 LTS et suivantes | ✅ Compatible |
-| Linux Mint 21.x et 22.x (Cinnamon, MATE, Xfce) | ✅ Compatible (testé sous Cinnamon) |
+| Linux Mint 21.x et 22.x (Cinnamon, MATE, Xfce) | ✅ Compatible (testé sous Linux Mint 22.3 Cinnamon) |
 | Kubuntu, Xubuntu, Lubuntu, Ubuntu MATE 22.04+ | ✅ Compatible |
 | Zorin OS 17+, Pop!_OS 22.04+, elementary OS 7+, KDE neon 22.04+ | ✅ Devrait fonctionner (base Ubuntu 22.04+) |
 | Debian 12 (Bookworm) et suivantes | ⚠️ Devrait fonctionner (non testé) |
@@ -193,6 +216,11 @@ Developed by **ParadoxXx Squad** — [github.com/rerem8433/adb_pilot](https://gi
 
 > User interface language: **French** only for now.
 
+<p align="center">
+  <img src="screenshots/Applications.png" alt="ADB Pilot — application list" width="900"><br>
+  <em>Applications tab: real names, icons and versions, batch actions and debloat wizard</em>
+</p>
+
 ## Why this project?
 
 For a long time I used **[ADB AppControl](https://adbappcontrol.com)** (by *Cyber.Cat*) on Windows to manage my Android TV boxes. After moving to Linux, the only option left was running it through Wine, with hit-and-miss results.
@@ -226,6 +254,24 @@ ADB Pilot is a **complete rewrite for Linux** that follows the workflow of ADB A
 
 **Console**: `adb` / `fastboot` commands, interactive shell, logcat, quick commands. Typing `shell` opens a terminal.
 
+## Screenshots
+
+**Tools** (*Outils*): device info (CPU, RAM, storage, real Android version), screenshots, hardware keys, with scrcpy running alongside.
+
+![Tools tab with scrcpy](screenshots/Outils.png)
+
+**Processes** (*Processus*): running apps, RAM usage in %, foreground app (green ▶).
+
+![Processes tab](screenshots/Processus.png)
+
+**Console**: adb / fastboot commands, shell, logcat and scrcpy output.
+
+![Console tab](screenshots/Console.png)
+
+**About** (*À propos*): version, credits and folders used.
+
+![About tab](screenshots/About.png)
+
 ## Compatibility
 
 The `.deb` package targets **64-bit (amd64)** distributions with at least **glibc 2.34** and **Python 3.10**.
@@ -233,7 +279,7 @@ The `.deb` package targets **64-bit (amd64)** distributions with at least **glib
 | Distribution | Status |
 |---|---|
 | Ubuntu 22.04 LTS, 24.04 LTS and newer | ✅ Compatible |
-| Linux Mint 21.x and 22.x (Cinnamon, MATE, Xfce) | ✅ Compatible (tested on Cinnamon) |
+| Linux Mint 21.x and 22.x (Cinnamon, MATE, Xfce) | ✅ Compatible (tested on Linux Mint 22.3 Cinnamon) |
 | Kubuntu, Xubuntu, Lubuntu, Ubuntu MATE 22.04+ | ✅ Compatible |
 | Zorin OS 17+, Pop!_OS 22.04+, elementary OS 7+, KDE neon 22.04+ | ✅ Should work (Ubuntu 22.04+ base) |
 | Debian 12 (Bookworm) and newer | ⚠️ Should work (untested) |
