@@ -13,8 +13,8 @@
     },
     {
       "id": "launchers",
-      "name": "Launchers (Pour remplacer GoogleTV et se débarrasser des pubs)",
-      "name_en": "Launchers (To Replace GoogleTV and avoid ads)"
+      "name": "Launchers",
+      "name_en": "Launchers"
     }
   ],
   "apps": [
@@ -86,7 +86,7 @@
       "desc": "Navigateur + téléchargeur d'APK par code court.",
       "desc_en": "Browser + APK downloader using short codes.",
       "source": {
-        "page": "https://d.apkpure.com/b/XAPK/com.esaba.downloader?version=latest"
+        "page": "https://d.apkpure.com/b/APK/com.esaba.downloader?versionCode=52"
       }
     },
     {
@@ -98,7 +98,7 @@
       "desc": "Navigateur web ultra léger.",
       "desc_en": "Ultra-light web browser.",
       "source": {
-        "url": "Https://D.Apkpure.Com/B/Apk/Mark.Via.Gp?Version=Latest"
+        "url": "https://d.apkpure.com/b/APK/mark.via.gp?version=latest"
       }
     },
     {
