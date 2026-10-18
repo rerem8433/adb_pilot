@@ -269,7 +269,7 @@ ADB Pilot is a **complete rewrite for Linux** that follows the workflow of ADB A
 
 ![Tools tab with scrcpy](screenshots/Outils.png)
 
-**Store** : (*Store*): AppStore to direct install some apps chosen by developper.
+**Store** : AppStore to direct install some apps chosen by developper.
 
 ![Store tab](screenshots/Store.png)
 
