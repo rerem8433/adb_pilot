@@ -222,10 +222,6 @@ Developed by **ParadoxXx Squad** — [github.com/rerem8433/adb_pilot](https://gi
 
 > User interface available in **French** and **English** (Paramètres / Settings → Interface → Language).
 
-<p align="center">
-  <img src="screenshots/Applications.png" alt="ADB Pilot — application list" width="900"><br>
-  <em>Applications tab: real names, icons and versions, batch actions and debloat wizard</em>
-</p>
 
 ## Why this project?
 
