@@ -467,4 +467,9 @@ EN = {
     "Sauvegarde terminée": "Backup finished",
     "Installer %d applications": "Install %d apps",
     "Installation terminée": "Installation finished",
+    "Applis système : garder les données à la désinstallation (-k)": "System apps: keep data when uninstalling (-k)",
+    "Signature différente": "Different signature",
+    "L'appareil garde une version de ces applications signée différemment (installée, ou désinstallée en gardant ses données) :\n\n%s\n\nLa supprimer complètement (données comprises) puis installer le nouveau fichier ?":
+        "The device still has a differently signed version of these apps (installed, or uninstalled while keeping its data):\n\n%s\n\nRemove it completely (including data) and install the new file?",
+    ">> Suppression complète : %s": ">> Complete removal: %s",
 }

@@ -706,10 +706,21 @@ def act_enable(p: Package):
 
 
 def act_uninstall(p: Package):
-    keep = config.get("uninstall_keep_data", True)
     if p.system:
+        # Appli système : retirée pour l'utilisateur 0 seulement (restaurable), données gardées si demandé
+        keep = config.get("uninstall_keep_data", True)
         return adb.shell("pm uninstall %s--user 0 %s" % ("-k " if keep else "", q(p.name)))
-    return adb.shell("pm uninstall %s%s" % ("-k " if keep else "", q(p.name)))
+    # Appli utilisateur : désinstallation complète. Avec -k, Android garderait une trace du paquet
+    # (et de sa signature) : une autre version signée différemment refuserait ensuite de s'installer.
+    return adb.shell("pm uninstall " + q(p.name))
+
+
+def uninstall_completely(name: str) -> Result:
+    """Supprime toute trace d'un paquet (y compris un reste « désinstallé en gardant les données »)."""
+    r = adb.shell("pm uninstall " + q(name))
+    if "Success" not in r.out:
+        r = adb.run(["uninstall", name], timeout=60)
+    return r
 
 
 def act_restore(p: Package):

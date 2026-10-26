@@ -552,6 +552,8 @@ class InstallerPage(QWidget):
             if ov is not None:
                 self.ctl.in_main(lambda _v: fn(ov), None)
 
+        incompatible = []  # (fichier, paquet) : signature différente d'une version (encore) présente
+
         def work():
             ok = 0
             for i, f in enumerate(files, 1):
@@ -571,6 +573,9 @@ class InstallerPage(QWidget):
                     upd(lambda o, f=f, name=name, k=i: (o.item(str(f.path), name, f.icon, "ok"), o.set_done(k)))
                 else:
                     self.ctl.log.emit(_("[Erreur] : %s — %s") % (html.escape(f.path.name), html.escape(r.text)), "err")
+                    mm = re.search(r"INSTALL_FAILED_UPDATE_INCOMPATIBLE: Package (\S+) signatures", r.text or "")
+                    if mm:
+                        incompatible.append((f, mm.group(1)))
                     m = (r.text or "").strip().splitlines()[-1:] or [""]
                     upd(lambda o, f=f, name=name, k=i, m=m[0]: (o.item(str(f.path), name, f.icon, "err", m),
                                                                  o.set_done(k)))
@@ -585,7 +590,29 @@ class InstallerPage(QWidget):
             self.main.toast(_("Installation : %d/%d réussie(s)%s") % (
                 ok, total, "" if ok == total else _(" — détails dans la Console")))
             self.ctl.refresh_packages()
+            if incompatible:
+                self._offer_clean_reinstall(incompatible)
         self.ctl.submit(work, done=done)
+
+    def _offer_clean_reinstall(self, items):
+        """Signature différente : proposer de supprimer complètement l'ancienne version puis réinstaller."""
+        if self.ctl.ready and self.main.overlay.isVisible():
+            self.main.overlay.close_overlay()
+        lst = "\n".join("• %s (%s)" % (f.path.name, pkg) for f, pkg in items)
+        if QMessageBox.question(
+                self, _("Signature différente"),
+                _("L'appareil garde une version de ces applications signée différemment "
+                  "(installée, ou désinstallée en gardant ses données) :\n\n%s\n\n"
+                  "La supprimer complètement (données comprises) puis installer le nouveau fichier ?") % lst
+        ) != QMessageBox.Yes:
+            return
+
+        def work():
+            for _f, pkg in items:
+                self.ctl.log.emit(_(">> Suppression complète : %s") % pkg, "cmd")
+                r = adbcore.uninstall_completely(pkg)
+                self.ctl.log.emit(html.escape(r.text or ""), "out" if "Success" in r.out else "err")
+        self.ctl.submit(work, done=lambda _r: self.install([f for f, _p in items]))
 
     # -- presets -----------------------------------------------------------
     def save_preset(self):

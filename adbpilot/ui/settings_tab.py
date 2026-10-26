@@ -82,7 +82,7 @@ class SettingsTab(QWidget):
         self._check(f, _("Accorder toutes les permissions à l'installation (-g)"), "install_grant")
         self._check(f, _("Remplacer si déjà installée (-r)"), "install_replace")
         self._check(f, _("Autoriser le retour à une version antérieure (-d)"), "install_downgrade")
-        self._check(f, _("Garder les données à la désinstallation (-k)"), "uninstall_keep_data")
+        self._check(f, _("Applis système : garder les données à la désinstallation (-k)"), "uninstall_keep_data")
         col1.addWidget(g)
 
         g = QGroupBox(_("Connexion"))
