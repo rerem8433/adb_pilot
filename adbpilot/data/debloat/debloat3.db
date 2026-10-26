@@ -3,6 +3,12 @@ com.android.bips
 com.android.cts.ctsshim
 com.android.cts.priv.ctsshim
 com.android.deskclock
+com.android.inputmethod.pinyin
+com.android.managedprovisioning
+com.android.nfc
+com.android.printspooler
+com.android.providers.calendar
+com.android.providers.contacts
 com.android.vending
 com.android.wallpaperbackup
 com.android.zxl
@@ -15,6 +21,7 @@ com.google.android.backuptransport
 com.google.android.calendar
 com.google.android.gm.lite
 com.google.android.ims
+com.google.android.marvin.talkback
 com.google.android.syncadapters.contacts
 com.google.android.tts
 com.mediatek.calendarimporter

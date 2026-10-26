@@ -10,6 +10,8 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from .. import adbcore, metacache
 from ..adbcore import Device, adb
 from ..config import config
+from ..osutil import WINDOWS
+from ..i18n import _
 
 
 class Controller(QObject):
@@ -20,6 +22,7 @@ class Controller(QObject):
     packages_ready = Signal(list)
     package_meta = Signal(object)          # Package
     meta_progress = Signal(int, int)
+    meta_started = Signal(int)             # nombre d'APK à lire
     ram_ready = Signal(int, int)
     status = Signal(str)
     connecting = Signal(str)
@@ -48,7 +51,7 @@ class Controller(QObject):
                 res = fn(*args, **kw)
             except Exception as e:  # noqa: BLE001
                 res = e
-                self.log.emit("Erreur : %s" % e, "err")
+                self.log.emit(_("Erreur : %s") % e, "err")
             if done is not None:
                 self._call.emit(done, res)
         return self.pool.submit(run)
@@ -66,7 +69,7 @@ class Controller(QObject):
             if ok_msg:
                 self.log.emit("[Succès] : " + ok_msg, "ok")
         else:
-            self.log.emit("[Erreur] : " + html.escape(r.text or "code %d" % r.rc), "err")
+            self.log.emit("[Erreur] : " + html.escape(r.text or _("code %d") % r.rc), "err")
 
     def adb_logged(self, args, timeout=120, ok_msg=None):
         self.logcmd(args)
@@ -81,8 +84,9 @@ class Controller(QObject):
     # -- appareils ---------------------------------------------------------
     def start(self):
         if not adbcore.find_adb():
-            self.log.emit("adb introuvable. Installe-le (sudo apt install adb) ou télécharge-le "
-                          "depuis l'onglet Paramètres.", "err")
+            self.log.emit(_("adb introuvable : télécharge-le depuis l'onglet Paramètres.") if WINDOWS else
+                          _("adb introuvable. Installe-le (sudo apt install adb) ou télécharge-le "
+                            "depuis l'onglet Paramètres."), "err")
         else:
             self.submit(lambda: adbcore.adb.run(["start-server"], serial=False, timeout=30),
                         done=lambda r: self._after_server(r))
@@ -137,17 +141,22 @@ class Controller(QObject):
         self._meta_gen += 1
         self.device_changed.emit(dev)
         if dev and dev.state == "device":
-            self.log.emit("Connecté à %s (%s)" % (dev.label, dev.serial), "ok")
+            self.log.emit(_("Connecté à %s (%s)") % (dev.label, dev.serial), "ok")
+            if dev.is_network and ":" in dev.serial:
+                names = dict(config.get("ip_names", {}))
+                names[dev.serial.split(":")[0]] = dev.label
+                config["ip_names"] = names
+                config.save()
             self.load_info()
             self.refresh_packages()
             self.refresh_ram()
         elif dev and dev.state == "unauthorized":
-            self.log.emit("Appareil %s non autorisé : accepte la demande de débogage USB sur "
-                          "l'écran de l'appareil." % dev.serial, "err")
+            self.log.emit(_("Appareil %s non autorisé : accepte la demande de débogage USB sur "
+                          "l'écran de l'appareil.") % dev.serial, "err")
         elif dev and "permission" in dev.state:
-            self.log.emit("Pas de permission USB pour %s : installe les règles udev "
+            self.log.emit(_("Pas de permission USB pour %s : installe les règles udev "
                           "(sudo apt install android-sdk-platform-tools-common) puis "
-                          "rebranche l'appareil." % dev.serial, "err")
+                          "rebranche l'appareil.") % dev.serial, "err")
 
     def connect_ip(self, text, quiet=False):
         text = text.strip()
@@ -161,11 +170,17 @@ class Controller(QObject):
 
         def work():
             if not quiet:
+                # Un seul appareil à la fois : on repart d'un serveur adb propre
+                self.logcmd(["disconnect"])
+                adb.run(["disconnect"], serial=False, timeout=10)
+                self.logcmd(["kill-server"])
+                adb.run(["kill-server"], serial=False, timeout=10)
+                adb.run(["start-server"], serial=False, timeout=30)
                 self.logcmd(["connect", target])
             r = adb.run(["connect", target], serial=False, timeout=12)
             ok = r.ok and ("connected to" in r.out) and "failed" not in r.out and "unable" not in r.out
             if not quiet or ok:
-                self.log.emit(html.escape(r.text or "pas de réponse"), "ok" if ok else "err")
+                self.log.emit(html.escape(r.text or _("pas de réponse")), "ok" if ok else "err")
             return r, ok
 
         def done(res):
@@ -196,7 +211,7 @@ class Controller(QObject):
             config["last_ip"] = ""
             config.save()
         self._wanted_serial = None
-        self.submit(work, done=lambda _: self.poll_devices())
+        self.submit(work, done=lambda _x: self.poll_devices())
 
     # -- informations ------------------------------------------------------
     def load_info(self):
@@ -213,6 +228,7 @@ class Controller(QObject):
 
         def done(i):
             if isinstance(i, dict) and adb.serial == serial:
+                self.last_info = i
                 self.info_ready.emit(i)
                 self.specs_ready.emit(i.get("specs", {}))
         self.submit(work, done=done)
@@ -227,7 +243,7 @@ class Controller(QObject):
     def refresh_packages(self):
         if not self.ready:
             return
-        self.status.emit("Lecture de la liste des applications…")
+        self.status.emit(_("Lecture de la liste des applications…"))
         serial = self.current.serial
 
         def done(pkgs):
@@ -237,14 +253,14 @@ class Controller(QObject):
             old = {p.name: p for p in self.packages}
             for p in pkgs:
                 o = old.get(p.name)
-                if o and o.path == p.path and o.size == p.size and (o.label or o.icon):
-                    p.label, p.icon, p.version = o.label, o.icon, o.version
+                if o and o.path == p.path and o.base_size == p.base_size and (o.label or o.icon or o.meta_done):
+                    p.label, p.icon, p.version, p.meta_done = o.label, o.icon, o.version, o.meta_done
                 elif config.get("load_meta", True):
                     metacache.load_cached(p, lang)
             self.packages = pkgs
             self.packages_ready.emit(pkgs)
-            self.status.emit("%d applications" % len(pkgs))
-            self.log.emit("[Succès] : Données des applications mises à jour.", "ok")
+            self.status.emit(_("%d applications") % len(pkgs))
+            self.log.emit(_("[Succès] : Données des applications mises à jour."), "ok")
             if config.get("load_meta", True):
                 self.start_meta()
         self.submit(adbcore.list_packages, done=done)
@@ -254,10 +270,13 @@ class Controller(QObject):
         gen = self._meta_gen
         serial = adb.serial
         lang = config.get("label_lang", "fr")
-        todo = [p for p in self.packages if p.label is None and p.icon is None and p.path and p.size]
+        todo = [p for p in self.packages if not p.meta_done and p.label is None and p.icon is None
+                and p.path and p.base_size]
         total = len(todo)
         if not total:
             return
+        self._meta_total = total
+        self.meta_started.emit(total)
         lock = threading.Lock()
         count = [0]
 
@@ -265,9 +284,11 @@ class Controller(QObject):
             if gen != self._meta_gen:
                 return
             try:
-                metacache.fetch_meta(p, serial, lang)
-            except Exception:  # noqa: BLE001
-                pass
+                if not metacache.fetch_meta(p, serial, lang):
+                    self.log.emit(_("[Erreur] : nom/icône illisibles pour %s (%s, %d octets)")
+                                  % (p.name, p.path, p.base_size), "err")
+            except Exception as e:  # noqa: BLE001
+                self.log.emit(_("[Erreur] : nom/icône de %s : %s") % (p.name, e), "err")
             with lock:
                 count[0] += 1
                 n = count[0]
@@ -277,7 +298,20 @@ class Controller(QObject):
         for p in todo:
             self.meta_pool.submit(one, p)
 
+    def cancel_meta(self):
+        """Arrête la lecture des noms/icônes (les APK restants seront lus au prochain rafraîchissement)."""
+        self._meta_gen += 1
+        t = getattr(self, "_meta_total", 0)
+        self.meta_progress.emit(t, t)
+
     def shutdown(self):
+        """Fermeture : on déconnecte et on arrête le serveur adb (un seul appareil par session)."""
+        try:
+            if adbcore.find_adb():
+                adb.run(["disconnect"], serial=False, timeout=5)
+                adb.run(["kill-server"], serial=False, timeout=5)
+        except Exception:  # noqa: BLE001
+            pass
         self._meta_gen += 1
         self.timer.stop()
         self.pool.shutdown(wait=False, cancel_futures=True)

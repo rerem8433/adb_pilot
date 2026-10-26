@@ -120,7 +120,9 @@ DESKTOP = """[Desktop Entry]
 Type=Application
 Name=ADB Pilot
 GenericName=Gestionnaire Android ADB
+GenericName[en]=Android ADB manager
 Comment=Gérer les applications d'un appareil Android via ADB (debloat, installation, scrcpy, console)
+Comment[en]=Manage the apps of an Android device over ADB (debloat, install, scrcpy, console)
 Exec=adbpilot %F
 Icon=adbpilot
 Terminal=false
@@ -128,6 +130,29 @@ Categories=Utility;Development;
 Keywords=adb;android;apk;debloat;scrcpy;fastboot;
 MimeType=application/vnd.android.package-archive;
 StartupWMClass=adbpilot
+"""
+
+METAINFO = """<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>adbpilot</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>ADB Pilot</name>
+  <summary>Manage the apps of an Android device over ADB</summary>
+  <summary xml:lang="fr">Gérer les applications d’un appareil Android via ADB</summary>
+  <description>
+    <p>Native Linux clone of ADB AppControl: app list with names and icons, debloat (UAD-ng lists), disable / uninstall / restore, APK / XAPK / APKS / APKM install, Store, processes, adb/fastboot console, remote control and scrcpy.</p>
+    <p xml:lang="fr">Clone Linux natif d’ADB AppControl : liste des applications avec noms et icônes, debloat (listes UAD-ng), désactivation / désinstallation / restauration, installation APK / XAPK / APKS / APKM, Store, processus, console adb/fastboot, télécommande et scrcpy.</p>
+  </description>
+  <launchable type="desktop-id">adbpilot.desktop</launchable>
+  <icon type="stock">adbpilot</icon>
+  <url type="homepage">https://github.com/rerem8433/adb_pilot</url>
+  <url type="bugtracker">https://github.com/rerem8433/adb_pilot/issues</url>
+  <developer id="paradoxxx-squad"><name>ParadoxXx Squad</name></developer>
+  <categories><category>Utility</category><category>Development</category></categories>
+  <content_rating type="oars-1.1"/>
+  <releases><release version="%s" date="%s"/></releases>
+</component>
 """
 
 LAUNCHER = """#!/bin/sh
@@ -171,7 +196,12 @@ def main():
     (bin_dir / APP_ID).chmod(0o755)
     app_dir = STAGE / "usr" / "share" / "applications"
     app_dir.mkdir(parents=True)
-    (app_dir / f"{APP_ID}.desktop").write_text(DESKTOP)
+    (app_dir / f"{APP_ID}.desktop").write_text(DESKTOP, encoding="utf-8")
+    meta_dir = STAGE / "usr" / "share" / "metainfo"
+    meta_dir.mkdir(parents=True)
+    import datetime
+    (meta_dir / f"{APP_ID}.metainfo.xml").write_text(
+        METAINFO % (VERSION, datetime.date.today().isoformat()), encoding="utf-8")
     render_icons(STAGE / "usr" / "share" / "icons" / "hicolor")
     doc = STAGE / "usr" / "share" / "doc" / APP_ID
     doc.mkdir(parents=True)
@@ -188,17 +218,19 @@ Section: utils
 Priority: optional
 Architecture: amd64
 Installed-Size: {size_kb}
-Depends: python3 (>= 3.10), libc6 (>= 2.34), libxcb-cursor0, libxkbcommon-x11-0, libxkbcommon0, libxcb-icccm4, libxcb-keysyms1, libxcb-image0, libxcb-render-util0, libxcb-shape0, libxcb-xkb1, libxcb-randr0, libxcb-util1, libegl1, libgl1, libfontconfig1, libfreetype6, libdbus-1-3, libglib2.0-0, libwayland-client0, libwayland-cursor0, libwayland-egl1
-Recommends: adb, scrcpy, android-sdk-platform-tools-common
+Depends: adb | android-tools-adb, scrcpy, python3 (>= 3.10), libc6 (>= 2.34), libxcb-cursor0, libxkbcommon-x11-0, libxkbcommon0, libxcb-icccm4, libxcb-keysyms1, libxcb-image0, libxcb-render-util0, libxcb-shape0, libxcb-xkb1, libxcb-randr0, libxcb-util1, libegl1, libgl1, libfontconfig1, libfreetype6, libdbus-1-3, libglib2.0-0, libwayland-client0, libwayland-cursor0, libwayland-egl1
+Recommends: android-sdk-platform-tools-common
 Suggests: fastboot
-Maintainer: ParadoxXx Squad <noreply@localhost>
+Maintainer: ParadoxXx Squad <noreply@github.com>
 Homepage: https://github.com/rerem8433/adb_pilot
-Description: Gestionnaire d'appareils Android via ADB (clone Linux d'AppControl)
- Liste des applications avec noms et icônes, debloat (base UAD-ng),
- désactivation / désinstallation / restauration, installation APK / XAPK /
- APKS / APKM, presets, permissions, console adb/fastboot avec shell
- interactif, logcat, captures, enregistrement vidéo et scrcpy.
-""")
+Description: Android device manager over ADB (native Linux AppControl clone)
+ App list with names and icons, debloat (UAD-ng lists), disable /
+ uninstall / restore, APK / XAPK / APKS / APKM install, app Store,
+ presets, permissions, processes, adb/fastboot console with interactive
+ shell, logcat, screenshots, screen recording, remote control and scrcpy.
+ .
+ French and English user interface.
+""", encoding="utf-8")
     (deb / "postinst").write_text("#!/bin/sh\nset -e\n"
                                   "command -v update-desktop-database >/dev/null && update-desktop-database -q || true\n"
                                   "command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t /usr/share/icons/hicolor || true\n")

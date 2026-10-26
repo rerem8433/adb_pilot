@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import html
-import shutil
-import subprocess
 from pathlib import Path
 
 from PySide6.QtCore import QByteArray, QSize, Qt, QTimer, QUrl
@@ -13,6 +11,8 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QFrame, QGridLayout, QMe
 
 from .. import APP_NAME, AUTHOR, HOMEPAGE, VERSION, adbcore
 from ..adbcore import adb
+from .. import osutil
+from .progress_overlay import ProgressOverlay
 from ..config import CONFIG_DIR, DATA_DIR, config, user_dir
 from . import style
 from .apps_tab import AppsTab
@@ -20,7 +20,9 @@ from .console_tab import ConsoleTab
 from .controller import Controller
 from .settings_tab import SettingsTab
 from .process_tab import ProcessTab
+from .store_tab import StoreTab
 from .tools_tab import ToolsTab
+from ..i18n import _
 
 APK_EXT = (".apk", ".apks", ".xapk", ".apkm")
 
@@ -31,7 +33,7 @@ class Toast(QLabel):
         self.setWordWrap(True)
         self.setAlignment(Qt.AlignCenter)
         self.setStyleSheet("background: rgba(20,20,22,0.93); color: #fff; padding: 12px 18px;"
-                           "border: 1px solid #2fd06b; border-radius: 6px; font-size: 10pt;")
+                           "border: 1px solid #4a74d6; border-radius: 6px; font-size: 10pt;")
         self.hide()
         self.t = QTimer(self)
         self.t.setSingleShot(True)
@@ -54,14 +56,21 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("%s %s" % (APP_NAME, VERSION))
         self.setWindowIcon(style.logo_icon())
         self.resize(1180, 760)
-        self.setMinimumSize(980, 620)
+        self.setMinimumSize(720, 520)
         self.setAcceptDrops(True)
         self.ctl = Controller()
         from ..config import SUBDIRS
-        from ..debloat import ensure_files
         for sd in SUBDIRS:
             user_dir(sd)
-        ensure_files()
+
+        def _sync_debloat():
+            try:
+                from ..debloat import sync_lists
+                sync_lists()
+            except Exception:  # noqa: BLE001 - hors ligne : listes intégrées
+                pass
+        import threading
+        threading.Thread(target=_sync_debloat, daemon=True).start()
         self._build()
         self.apply_theme()
         try:
@@ -71,9 +80,11 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         self.ctl.status.connect(self.set_status)
-        self.ctl.devices_changed.connect(self._on_devices)
         self.ctl.device_changed.connect(self._on_device)
         self.ctl.meta_progress.connect(self.apps.meta_progress)
+        self.ctl.meta_started.connect(self._meta_started)
+        self.ctl.package_meta.connect(self._meta_item)
+        self.ctl.meta_progress.connect(self._meta_progress)
         self.ctl.connecting.connect(self._on_connecting)
         self.ctl.connect_result.connect(self._on_connect_result)
         self.ctl.specs_ready.connect(self._on_specs)
@@ -119,7 +130,7 @@ class MainWindow(QMainWindow):
         r1.addWidget(la)
         r1.addWidget(lb)
         r1.addSpacing(14)
-        r1.addWidget(self._hdr_btn("folder", "Ouvrir le dossier ADB_Pilot (%s)" % user_dir(),
+        r1.addWidget(self._hdr_btn("folder", _("Ouvrir le dossier ADB_Pilot (%s)") % user_dir(),
                                    lambda: self._open_dir(str(user_dir()))))
         r1.addStretch(1)
         conn = QGridLayout()
@@ -127,7 +138,7 @@ class MainWindow(QMainWindow):
         conn.setVerticalSpacing(2)
         self.ip = QLineEdit()
         self.ip.setMinimumWidth(170)
-        self.ip.setPlaceholderText("IP de l'appareil")
+        self.ip.setPlaceholderText(_("IP de l'appareil"))
         self.ip.setText(config.get("last_ip", ""))
         self.ip.returnPressed.connect(self._connect_clicked)
         self.ip.setStyleSheet("QLineEdit { background: rgba(0,0,0,0.25); color: #e0e0e0; "
@@ -135,7 +146,7 @@ class MainWindow(QMainWindow):
         conn.addWidget(self.ip, 0, 0)
         self.b_hist = QToolButton()
         self.b_hist.setObjectName("hdr")
-        self.b_hist.setToolTip("Historique des connexions")
+        self.b_hist.setToolTip(_("Historique des connexions"))
         self.b_hist.setIconSize(QSize(22, 22))
         self.b_hist.setProperty("svg", "history")
         self.b_hist.setPopupMode(QToolButton.InstantPopup)
@@ -145,9 +156,9 @@ class MainWindow(QMainWindow):
         self.b_hist.setMenu(self.hist_menu)
         self._hdr_buttons.append(self.b_hist)
         conn.addWidget(self.b_hist, 0, 1)
-        self.b_go = QPushButton("GO !")
+        self.b_go = QPushButton(_("GO !"))
         self.b_go.setObjectName("goBtn")
-        self.b_go.setToolTip("Se connecter en Wi-Fi à l'IP saisie")
+        self.b_go.setToolTip(_("Se connecter en Wi-Fi à l'IP saisie"))
         self.b_go.setFixedSize(58, 30)
         self.b_go.clicked.connect(self._connect_clicked)
         conn.addWidget(self.b_go, 0, 2)
@@ -155,45 +166,40 @@ class MainWindow(QMainWindow):
         self.port.setEditable(True)
         self.port.addItems(["Auto", "5555", "5556", "5037"])
         self.port.setFixedWidth(80)
-        self.port.setToolTip("Port ADB (Auto = 5555)")
+        self.port.setToolTip(_("Port ADB (Auto = 5555)"))
         pv = str(config.get("port", "auto"))
         self.port.setCurrentText("Auto" if pv.lower() == "auto" else pv)
         self.port.currentTextChanged.connect(self._port_changed)
-        lp = QLabel("Port :")
+        lp = QLabel(_("Port :"))
         lp.setStyleSheet("font-size: 8pt;")
         conn.addWidget(lp, 0, 3)
         conn.addWidget(self.port, 0, 4)
-        self.b_tcpip = QPushButton("Passer en Wi-Fi")
+        self.b_tcpip = QPushButton(_("Passer en Wi-Fi"))
         self.b_tcpip.setObjectName("tcpipBtn")
-        self.b_tcpip.setToolTip("Active le débogage ADB en Wi-Fi sur l'appareil branché en USB "
-                                "(adb tcpip) puis s'y connecte")
+        self.b_tcpip.setToolTip(_("Active le débogage ADB en Wi-Fi sur l'appareil branché en USB "
+                                "(adb tcpip) puis s'y connecte"))
         self.b_tcpip.clicked.connect(lambda: self.tools_tab.to_wifi())
         conn.addWidget(self.b_tcpip, 1, 2, 1, 3)
         r1.addLayout(conn)
         hl.addLayout(r1)
 
         r2 = QHBoxLayout()
-        r2.addWidget(self._hdr_btn("refresh", "Rafraîchir", self._refresh_all))
-        self.dev_label = QLabel("Aucun appareil connecté")
+        r2.addWidget(self._hdr_btn("refresh", _("Rafraîchir"), self._refresh_all))
+        self.dev_label = QLabel(_("Aucun appareil connecté"))
         self.dev_label.setObjectName("deviceNameOff")
         r2.addWidget(self.dev_label)
         self.dev_specs = QLabel("")
         self.dev_specs.setObjectName("devSpecs")
         r2.addSpacing(10)
         r2.addWidget(self.dev_specs)
-        self.dev_combo = QComboBox()
-        self.dev_combo.setMinimumWidth(220)
-        self.dev_combo.hide()
-        self.dev_combo.activated.connect(lambda i: self.ctl.select(self.dev_combo.itemData(i)))
-        r2.addWidget(self.dev_combo)
         r2.addStretch(1)
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Rechercher…")
+        self.search.setPlaceholderText(_("Rechercher…"))
         self.search.setClearButtonEnabled(True)
         self.search.setFixedWidth(260)
         self.search.setStyleSheet("background: rgba(0,0,0,0.25); color: #eee; border: none; padding: 5px;")
         self.search_action = self.search.addAction(style.icon("search", "#cccccc"), QLineEdit.LeadingPosition)
-        self.search.textChanged.connect(lambda t: self.apps.set_search(t))
+        self.search.textChanged.connect(lambda t: (self.apps.set_search(t), self.store_tab.set_search(t)))
         r2.addWidget(self.search)
         hl.addLayout(r2)
         root.addWidget(header)
@@ -202,16 +208,19 @@ class MainWindow(QMainWindow):
         self.tabs.setDocumentMode(False)
         self.apps = AppsTab(self.ctl, self)
         self.tools_tab = ToolsTab(self.ctl, self)
+        self.store_tab = StoreTab(self.ctl, self)
         self.procs = ProcessTab(self.ctl, self)
         self.console = ConsoleTab(self.ctl, self)
         self.settings = SettingsTab(self.ctl, self)
         self.tabs.addTab(self.apps, "Applications")
-        self.tabs.addTab(self.tools_tab, "Outils")
-        self.tabs.addTab(self.procs, "Processus")
+        self.tabs.addTab(self.store_tab, "Store")
+        self.tabs.addTab(self.tools_tab, _("Outils"))
+        self.tabs.addTab(self.procs, _("Processus"))
         self.tabs.addTab(self.console, "Console")
-        self.tabs.addTab(self.settings, "Paramètres")
-        self.tabs.addTab(self._about(), "À propos")
-        self.tabs.currentChanged.connect(lambda i: self.search.setVisible(i == 0))
+        self.tabs.addTab(self.settings, _("Paramètres"))
+        self.tabs.addTab(self._about(), _("À propos"))
+        self.tabs.currentChanged.connect(
+            lambda i: self.search.setVisible(self.tabs.widget(i) in (self.apps, self.store_tab)))
         tw = QWidget()
         tl = QVBoxLayout(tw)
         tl.setContentsMargins(4, 4, 4, 0)
@@ -219,41 +228,70 @@ class MainWindow(QMainWindow):
         root.addWidget(tw, 1)
 
         sb = QStatusBar()
-        self.status_lbl = QLabel("Prêt")
+        self.status_lbl = QLabel(_("Prêt"))
         sb.addWidget(self.status_lbl, 1)
         self.setStatusBar(sb)
         self.toast_w = Toast(self)
+        self.overlay = ProgressOverlay(central, header)
+
+    # -- fenêtre de progression (lecture des noms / icônes) -------------------
+    META_OVERLAY_MIN = 5  # en dessous, simple barre discrète
+
+    def _meta_started(self, total):
+        self._meta_overlay = total >= self.META_OVERLAY_MIN
+        if self._meta_overlay:
+            dev = self.ctl.current.label if self.ctl.current else ""
+            self.overlay.start(_("Lecture des noms et icônes"),
+                               _("%s · lecture directe dans les APK") % dev, total, on_cancel=self.ctl.cancel_meta)
+
+    def _meta_item(self, p):
+        if getattr(self, "_meta_overlay", False) and self.overlay.isVisible():
+            state = "ok" if (p.label or p.icon is not None) else ("skip" if p.meta_done else "err")
+            self.overlay.item(p.name, p.display, p.icon, state)
+
+    def _meta_progress(self, n, total):
+        if getattr(self, "_meta_overlay", False) and self.overlay.isVisible():
+            self.overlay.set_done(n)
+            if n >= total:
+                self._meta_overlay = False
+                self.overlay.finish(_("Noms et icônes à jour"))
 
     def _about(self):
         w = QWidget()
         lay = QVBoxLayout(w)
         lay.setContentsMargins(30, 24, 30, 24)
         lbl = QLabel(
-            "<h2>%s %s</h2>"
+            _("<h2>%s %s</h2>"
             "<p style='font-size:12pt'>Développé par <b>%s</b><br>"
             "<a href='%s'>%s</a></p>"
-            "<p>Gestionnaire d'appareils Android via ADB pour Linux, natif (Python + Qt6).</p>"
+            "<p>Gestionnaire d'appareils Android via ADB pour Linux et Windows, natif (Python + Qt6).</p>"
             "<ul><li>Liste des applications avec noms, icônes et versions, filtres, recherche</li>"
             "<li>Désactiver / activer / désinstaller (utilisateur 0) / restaurer, forcer l'arrêt, "
             "effacer les données ou le cache, sauvegarder les fichiers d'installation</li>"
             "<li>Bibliothèque d'APK : APK / split APK / XAPK / APKS / APKM (glisser-déposer)</li>"
-            "<li>Assistant debloat (listes debloat0-3 modifiables), presets, permissions</li>"
+            "<li>Assistant debloat (listes debloat0-3, protection automatique des téléphones), presets, permissions</li>"
             "<li>Gestionnaire de processus, console adb / fastboot, shell, logcat</li>"
             "<li>Captures, vidéo, touches, scrcpy (enregistrement), Wi-Fi / appairage</li></ul>"
             "<p><b>Dossiers</b> : %s<br>"
-            "&nbsp;&nbsp;images · videos · install · apps · debloat (debloat0.db à debloat3.db)</p>"
+            "&nbsp;&nbsp;images · videos · install · apps · store</p>"
             "<p>Composants tiers : Qt 6 / PySide6 (LGPL-3.0), "
             "<a href='https://github.com/Genymobile/scrcpy'>scrcpy</a> (Apache-2.0), descriptions "
             "<a href='https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation'>UAD-ng</a> "
             "(GPL-3.0).</p>"
             "<p>Licence : GPL-3.0. Projet indépendant, sans lien avec ADB AppControl.</p>"
-            "<p style='color:#888'>Configuration : %s<br>Outils téléchargés : %s</p>"
+            "<p style='color:#888'>Configuration : %s<br>Outils téléchargés : %s</p>")
             % (APP_NAME, VERSION, AUTHOR, HOMEPAGE, HOMEPAGE, html.escape(str(user_dir())),
                html.escape(str(CONFIG_DIR)), html.escape(str(DATA_DIR))))
         lbl.setOpenExternalLinks(True)
         lbl.setWordWrap(True)
         lbl.setTextInteractionFlags(Qt.TextBrowserInteraction)
         lay.addWidget(lbl)
+        if osutil.WINDOWS and osutil.machine() == "arm64":
+            warn = QLabel(_("⚠ Version Windows ARM64 (Snapdragon…) : pas encore testée sur un vrai appareil ARM. "
+                            "Merci de signaler tout problème sur GitHub."))
+            warn.setWordWrap(True)
+            warn.setStyleSheet("color:#ffb84d; font-weight:600;")
+            lay.addWidget(warn)
         lay.addStretch(1)
         return w
 
@@ -273,39 +311,18 @@ class MainWindow(QMainWindow):
     def notify(self, title, body):
         """Toast dans la fenêtre + notification du bureau (notify-send)."""
         self.toast("%s\n%s" % (title, body), 8000)
-        exe = shutil.which("notify-send")
-        if exe:
-            import os
-            env = {k: v for k, v in os.environ.items()
-                   if k not in ("LD_LIBRARY_PATH", "PYTHONPATH", "PYTHONHOME", "QT_PLUGIN_PATH")}
-            try:
-                subprocess.Popen([exe, "-a", "ADB Pilot", "-i", "adbpilot", title, body], env=env)
-            except OSError:
-                pass
+        osutil.desktop_notify(title, body)
 
     def toast(self, text, ms=6000):
         self.toast_w.show_msg(text, ms)
         self.set_status(text)
 
     # -- appareils ---------------------------------------------------------
-    def _on_devices(self, devs):
-        self.dev_combo.clear()
-        for d in devs:
-            state = "" if d.state == "device" else "  [%s]" % d.state
-            self.dev_combo.addItem("%s  (%s)%s" % (d.label, d.serial, state), d.serial)
-        cur = self.ctl.current
-        if cur:
-            i = self.dev_combo.findData(cur.serial)
-            if i >= 0:
-                self.dev_combo.setCurrentIndex(i)
-        self.dev_combo.setVisible(len(devs) > 1)
-        self.dev_label.setVisible(len(devs) <= 1)
-
     def _on_device(self, dev):
         if dev is None:
-            self.dev_label.setText("Aucun appareil connecté")
+            self.dev_label.setText(_("Aucun appareil connecté"))
             self.dev_label.setObjectName("deviceNameOff")
-            self.set_status("En attente d'un appareil (USB ou Wi-Fi)…")
+            self.set_status(_("En attente d'un appareil (USB ou Wi-Fi)…"))
         elif dev.state == "device":
             self.dev_label.setText(dev.label)
             self.dev_label.setObjectName("deviceName")
@@ -314,13 +331,9 @@ class MainWindow(QMainWindow):
             self.dev_label.setObjectName("deviceNameOff")
         self.dev_label.style().unpolish(self.dev_label)
         self.dev_label.style().polish(self.dev_label)
-        if dev is not None:
-            i = self.dev_combo.findData(dev.serial)
-            if i >= 0:
-                self.dev_combo.setCurrentIndex(i)
         net = bool(dev and dev.is_network)
-        self.b_go.setToolTip("Déconnecter %s (re-cliquer)" % dev.serial if net
-                             else "Se connecter en Wi-Fi à l'IP saisie")
+        self.b_go.setToolTip(_("Déconnecter %s (re-cliquer)") % dev.serial if net
+                             else _("Se connecter en Wi-Fi à l'IP saisie"))
         self.b_tcpip.setVisible(not net)
         if dev is None or dev.state != "device":
             self.dev_specs.setText("")
@@ -335,15 +348,19 @@ class MainWindow(QMainWindow):
         m = self.hist_menu
         m.clear()
         hist = config.get("ip_history", [])
+        names = config.get("ip_names", {})
         if not hist:
-            a = m.addAction("(historique vide)")
+            a = m.addAction(_("(historique vide)"))
             a.setEnabled(False)
         for h in hist:
-            m.addAction(h, lambda h=h: (self.ip.setText(h), self.ctl.connect_ip(h)))
+            name = names.get(h.split(":")[0])
+            label = "%s  —  %s" % (name, h) if name else h
+            m.addAction(style.icon("wifi", style.ACCENT_LINE), label,
+                        lambda h=h: (self.ip.setText(h), self.ctl.connect_ip(h)))
         m.addSeparator()
-        m.addAction("Déconnecter tous les appareils réseau", lambda: self.ctl.disconnect_ip())
+        m.addAction(_("Déconnecter tous les appareils réseau"), lambda: self.ctl.disconnect_ip())
         if hist:
-            m.addAction("Effacer l'historique", self._clear_history)
+            m.addAction(_("Effacer l'historique"), self._clear_history)
 
     def _clear_history(self):
         config["ip_history"] = []
@@ -351,42 +368,45 @@ class MainWindow(QMainWindow):
 
     def _on_connecting(self, target):
         self.b_go.setEnabled(False)
-        self.toast("Connexion à %s…" % target, 15000)
+        self.toast(_("Connexion à %s…") % target, 15000)
 
     def _on_connect_result(self, target, ok, text):
         self.b_go.setEnabled(True)
         if ok:
-            self.toast("Connecté à %s" % target, 3000)
+            self.toast(_("Connecté à %s") % target, 3000)
             return
         low = (text or "").lower()
         if "authenticate" in low or "unauthorized" in low:
-            hint = "Accepte la demande de débogage qui s'affiche sur l'écran de l'appareil."
+            hint = _("Accepte la demande de débogage qui s'affiche sur l'écran de l'appareil.")
         elif "refused" in low:
-            hint = ("L'appareil refuse la connexion : le débogage ADB réseau n'est pas activé "
-                    "(Options développeur → Débogage ADB / ADB sans fil), ou le port n'est pas 5555.")
+            hint = (_("L'appareil refuse la connexion : le débogage ADB réseau n'est pas activé "
+                    "(Options développeur → Débogage ADB / ADB sans fil), ou le port n'est pas 5555."))
         elif "délai" in low or "timed out" in low or "no route" in low or "unreachable" in low or not low:
-            hint = ("Pas de réponse : vérifie l'IP, que l'appareil est allumé sur le même réseau, "
-                    "et que le débogage ADB réseau est activé.")
+            hint = (_("Pas de réponse : vérifie l'IP, que l'appareil est allumé sur le même réseau, "
+                    "et que le débogage ADB réseau est activé."))
         else:
             hint = text
-        self.toast("Échec de la connexion à %s\n%s" % (target, hint), 10000)
+        self.toast(_("Échec de la connexion à %s\n%s") % (target, hint), 10000)
 
     def _on_specs(self, sp):
         parts = []
         if sp.get("ram_gb"):
-            parts.append("RAM %s Go" % sp["ram_gb"])
+            parts.append(_("RAM %s Go") % sp["ram_gb"])
         if sp.get("storage_gb"):
-            parts.append("Stockage %s GB" % sp["storage_gb"])
+            parts.append(_("Stockage %s GB") % sp["storage_gb"])
         if sp.get("android"):
-            parts.append("Android %s" % sp["android"])
-        warn = sp.get("fake")
+            parts.append(_("Android %s") % sp["android"])
+        warn = sp.get("fake") or sp.get("ram_fake")
         self.dev_specs.setText(" · ".join(parts) + ("  ⚠" if warn else ""))
-        tip = ["RAM détectée : %s" % sp.get("ram_exact", "?"),
-               "Stockage /data : %s" % sp.get("storage_exact", "?"),
-               "Android réel : %s (API %s) — lu dans framework-res.apk" % (sp.get("android", "?"), sp.get("sdk", "?")),
-               "build.prop annonce : Android %s (API %s)" % (sp.get("claimed", "?"), sp.get("claimed_sdk", "?"))]
-        if warn:
-            tip.append("⚠ build.prop semble modifié : la version annoncée ne correspond pas au système réel.")
+        tip = [_("RAM détectée : %s") % sp.get("ram_exact", "?"),
+               _("Stockage /data : %s") % sp.get("storage_exact", "?"),
+               _("Android réel : %s (API %s) — lu dans framework-res.apk") % (sp.get("android", "?"), sp.get("sdk", "?")),
+               _("build.prop annonce : Android %s (API %s)") % (sp.get("claimed", "?"), sp.get("claimed_sdk", "?"))]
+        if sp.get("fake"):
+            tip.append(_("⚠ build.prop semble modifié : la version annoncée ne correspond pas au système réel."))
+        if sp.get("ram_fake"):
+            tip.append(_("⚠ RAM truquée par la ROM : elle annonce %s Go, l'appareil n'en a que %s Go.")
+                       % (sp["ram_fake"], sp.get("ram_gb", "?")))
         self.dev_specs.setToolTip("\n".join(tip))
 
     def _connect_clicked(self):
@@ -397,7 +417,7 @@ class MainWindow(QMainWindow):
             self.ctl.disconnect_ip(cur.serial)
             return
         if not text:
-            self.toast("Saisis l'adresse IP de l'appareil (débogage ADB réseau activé).")
+            self.toast(_("Saisis l'adresse IP de l'appareil (débogage ADB réseau activé)."))
             return
         self.ctl.connect_ip(text)
 
@@ -415,42 +435,42 @@ class MainWindow(QMainWindow):
 
     def install_files(self, files):
         if not self.ctl.ready:
-            self.toast("Aucun appareil connecté.")
+            self.toast(_("Aucun appareil connecté."))
             return
         apks = [f for f in files if f.lower().endswith(".apk")]
         bundles = [f for f in files if f.lower().endswith((".apks", ".xapk", ".apkm"))]
         split = False
         if len(apks) > 1:
             r = QMessageBox.question(
-                self, "Plusieurs APK",
-                "Ces %d APK forment-ils une seule application (split APK : base + config) ?\n\n"
-                "Oui = installation groupée (install-multiple)\nNon = chaque APK séparément" % len(apks))
+                self, _("Plusieurs APK"),
+                _("Ces %d APK forment-ils une seule application (split APK : base + config) ?\n\n"
+                "Oui = installation groupée (install-multiple)\nNon = chaque APK séparément") % len(apks))
             split = r == QMessageBox.Yes
-        self.toast("Installation de %d fichier(s)…" % (len(apks) + len(bundles)), 3000)
+        self.toast(_("Installation de %d fichier(s)…") % (len(apks) + len(bundles)), 3000)
 
         def work():
             ok = 0
             jobs = ([apks] if split else [[a] for a in apks]) + [[b] for b in bundles]
             for job in jobs:
                 names = ", ".join(Path(x).name for x in job)
-                self.ctl.log.emit(">> Installation : %s" % html.escape(names), "cmd")
+                self.ctl.log.emit(_(">> Installation : %s") % html.escape(names), "cmd")
                 if job[0].lower().endswith(APK_EXT[1:]):
                     r = adbcore.install_bundle(job[0], log=lambda s: self.ctl.log.emit(s, "info"))
                 else:
                     r = adbcore.install_apks(job)
                 if r.ok and "Failure" not in r.out:
                     ok += 1
-                    self.ctl.log.emit("[Succès] : %s installé" % html.escape(names), "ok")
+                    self.ctl.log.emit(_("[Succès] : %s installé") % html.escape(names), "ok")
                 else:
-                    self.ctl.log.emit("[Erreur] : %s" % html.escape(r.text), "err")
+                    self.ctl.log.emit(_("[Erreur] : %s") % html.escape(r.text), "err")
             return ok, len(jobs)
 
         def done(res):
             if isinstance(res, Exception):
                 return
             ok, n = res
-            self.toast("Installation : %d/%d réussie(s)%s" % (
-                ok, n, "" if ok == n else " — détails dans la Console"))
+            self.toast(_("Installation : %d/%d réussie(s)%s") % (
+                ok, n, "" if ok == n else _(" — détails dans la Console")))
             self.ctl.refresh_packages()
         self.ctl.submit(work, done=done)
 
@@ -471,52 +491,30 @@ class MainWindow(QMainWindow):
     # -- divers ------------------------------------------------------------
     def open_terminal_shell(self):
         if not self.ctl.ready:
-            self.toast("Aucun appareil connecté.")
+            self.toast(_("Aucun appareil connecté."))
             return
         exe = adbcore.find_adb()
         cmd = [exe, "-s", adb.serial, "shell"]
-        title = "adb shell — %s" % (self.ctl.current.label)
-        cands = [
-            ("gnome-terminal", ["--title", title, "--"] + cmd),
-            ("mate-terminal", ["--title", title, "-x"] + cmd),
-            ("xfce4-terminal", ["--title", title, "-x"] + cmd),
-            ("konsole", ["-e"] + cmd),
-            ("tilix", ["-e"] + [" ".join(cmd)]),
-            ("kitty", cmd),
-            ("alacritty", ["-e"] + cmd),
-            ("x-terminal-emulator", ["-e"] + cmd),
-            ("xterm", ["-T", title, "-e"] + cmd),
-        ]
-        import os
-        env = {k: v for k, v in os.environ.items()
-               if k not in ("LD_LIBRARY_PATH", "PYTHONPATH", "PYTHONHOME", "QT_PLUGIN_PATH")}
-        for term, args in cands:
-            path = shutil.which(term)
-            if path:
-                subprocess.Popen([path] + args, env=env, start_new_session=True)
-                self.ctl.log.emit(">> %s %s" % (term, " ".join(cmd)), "cmd")
-                return
-        self.toast("Aucun terminal trouvé. Utilise le bouton Shell de la console.")
+        title = _("adb shell — %s") % (self.ctl.current.label)
+        term = osutil.open_terminal(cmd, title)
+        if term:
+            self.ctl.log.emit(">> %s %s" % (term, " ".join(cmd)), "cmd")
+            return
+        self.toast(_("Aucun terminal trouvé. Utilise le bouton Shell de la console."))
 
     def _open_dir(self, d):
         if d:
             Path(d).mkdir(parents=True, exist_ok=True)
             QDesktopServices.openUrl(QUrl.fromLocalFile(d))
 
-    def _help(self):
-        QMessageBox.information(
-            self, "Aide",
-            "<b>Connexion USB</b> : active le débogage USB sur l'appareil, branche-le et accepte la "
-            "demande d'autorisation. S'il apparaît « no permissions », installe les règles udev : "
-            "<code>sudo apt install android-sdk-platform-tools-common</code> puis rebranche.<br><br>"
-            "<b>Connexion Wi-Fi</b> : saisis l'IP de l'appareil en haut à droite puis clique sur "
-            "l'icône Wi-Fi (port 5555 par défaut, ou IP:port). Android 11+ : bouton « Appairer » "
-            "dans l'onglet Outils. Re-cliquer sur l'icône Wi-Fi déconnecte.<br><br>"
-            "<b>Applications</b> : coche les applis puis choisis une action en bas à droite et "
-            "clique sur Appliquer. Clic droit sur une ligne pour plus d'actions, double-clic pour les "
-            "infos. Glisse des APK/XAPK/APKS/APKM sur la fenêtre pour les installer.<br><br>"
-            "<b>Supprimées</b> : applis désinstallées pour l'utilisateur 0 ; « Restaurer » les "
-            "réinstalle sans téléchargement.")
+    def restart(self):
+        import os
+        import sys
+        from PySide6.QtCore import QProcess
+        self.close()
+        args = sys.argv[1:] if getattr(sys, "frozen", False) else ["-m", "adbpilot"] + sys.argv[1:]
+        QProcess.startDetached(sys.executable, args, os.getcwd())
+        QApplication.instance().quit()
 
     def closeEvent(self, e):
         config["window_geometry"] = bytes(self.saveGeometry().toBase64()).decode()

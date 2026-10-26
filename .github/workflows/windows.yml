@@ -1,0 +1,111 @@
+# Construit ADB Pilot pour Windows (x64 + ARM64) et ajoute les fichiers à la release GitHub du tag.
+#   - publication d'une release (ou push d'un tag v*)  -> compilation + ajout à la release
+#   - Actions > "Windows build" > Run workflow  -> compilation seule (fichiers dans "Artifacts")
+name: Windows build
+
+on:
+  release:
+    types: [published]
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  app:
+    name: App ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+          - arch: arm64
+            runner: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: ${{ matrix.arch }}
+
+      - name: Dépendances
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "PySide6-Essentials==6.9.3" pyinstaller pillow certifi
+          python -c "import platform, PySide6; print(platform.machine(), PySide6.__version__)"
+
+      - name: Compilation (PyInstaller + adb + scrcpy)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python packaging/windows/build_windows.py
+
+      - name: Test de démarrage (import + interface hors écran)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -c "import sys; sys.path.insert(0, '.'); from adbpilot import osutil; print(osutil.os_name(), osutil.app_arch())"
+          python -c "import sys; sys.path.insert(0, '.'); from PySide6.QtWidgets import QApplication; app = QApplication([]); from adbpilot.ui.main_window import MainWindow; w = MainWindow(); print('UI OK')"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.arch }}
+          path: |
+            dist/ADB-Pilot-${{ matrix.arch }}
+            dist/*.zip
+          if-no-files-found: error
+
+  installer:
+    name: Installateurs
+    needs: app
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Rassemble les fichiers
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          foreach ($a in "x64", "arm64") {
+            Copy-Item -Recurse "artifacts/app-$a/ADB-Pilot-$a" "dist/ADB-Pilot-$a"
+            Copy-Item "artifacts/app-$a/*.zip" dist/
+          }
+          Get-ChildItem dist
+
+      - name: Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup -y --no-progress }
+          $ver = (Select-String -Path adbpilot/__init__.py -Pattern 'VERSION = "(.+)"').Matches[0].Groups[1].Value
+          foreach ($a in "x64", "arm64") {
+            & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$ver" "/DArch=$a" "/DSrcDir=..\..\dist\ADB-Pilot-$a" packaging/windows/adbpilot.iss
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          Get-ChildItem dist -Filter *.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: |
+            dist/*-setup.exe
+            dist/*-portable.zip
+
+      - name: Ajout à la release GitHub
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*-setup.exe
+            dist/*-portable.zip

@@ -12,15 +12,17 @@ from PySide6.QtWidgets import (QDialog, QDialogButtonBox, QFormLayout, QFrame, Q
 from .. import adbcore, debloat
 from ..adbcore import adb, q
 from . import style
+from ..i18n import _
 
 
 class DebloatWizard(QDialog):
-    def __init__(self, parent=None, device_pkgs=()):
+    def __init__(self, parent=None, device_pkgs=(), is_tv=True):
         super().__init__(parent)
-        self.setWindowTitle("Assistant debloat")
+        self.setWindowTitle(_("Assistant debloat"))
         self.setFixedSize(600, 400)
         self.level = 1
         self.device_pkgs = set(device_pkgs)
+        self.is_tv = is_tv
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
@@ -29,7 +31,7 @@ class DebloatWizard(QDialog):
         side.setStyleSheet("background: #1e3a7b;")
         side.setFixedWidth(200)
         sl = QVBoxLayout(side)
-        t = QLabel("Niveau de nettoyage :")
+        t = QLabel(_("Niveau de nettoyage :"))
         t.setStyleSheet("color: white;")
         sl.addWidget(t)
         box = QFrame()
@@ -43,7 +45,7 @@ class DebloatWizard(QDialog):
         bl.addWidget(self.slider)
         labels = QVBoxLayout()
         for i in reversed(range(4)):
-            name, color, _ = debloat.LEVELS[i]
+            name, color, _desc = debloat.LEVELS[i]
             lb = QLabel(name)
             lb.setStyleSheet("color: %s; font-size: 11pt; font-weight: 600;" % color)
             labels.addWidget(lb)
@@ -51,7 +53,7 @@ class DebloatWizard(QDialog):
                 labels.addStretch(1)
         bl.addLayout(labels)
         sl.addWidget(box, 1)
-        v = QLabel("Listes ADB Pilot (debloat0-3)")
+        v = QLabel(_("Listes ADB Pilot (debloat0-3)"))
         v.setStyleSheet("color: #c8d4f0; font-size: 7pt;")
         v.setAlignment(Qt.AlignCenter)
         sl.addWidget(v)
@@ -62,12 +64,12 @@ class DebloatWizard(QDialog):
         main.setStyleSheet("#wizMain { background: white; } #wizMain QLabel { color: #111; }")
         ml = QVBoxLayout(main)
         ml.setContentsMargins(16, 14, 16, 16)
-        h = QLabel("Assistant debloat")
+        h = QLabel(_("Assistant debloat"))
         h.setStyleSheet("font-size: 12pt; font-weight: 700;")
         ml.addWidget(h)
-        intro = QLabel("Selon le niveau choisi, la liste des applications jugées inutiles est "
+        intro = QLabel(_("Selon le niveau choisi, la liste des applications jugées inutiles est "
                        "cochée dans l'onglet Applications. Relis et ajuste la liste avant de "
-                       "cliquer sur Appliquer : rien n'est désactivé sans ta validation.")
+                       "cliquer sur Appliquer : rien n'est désactivé sans ta validation."))
         intro.setWordWrap(True)
         intro.setStyleSheet("font-style: italic; font-size: 9pt;")
         ml.addWidget(intro)
@@ -84,8 +86,8 @@ class DebloatWizard(QDialog):
         ml.addWidget(self.src)
         ml.addStretch(1)
         ok = QPushButton("APPLIQUER")
-        ok.setStyleSheet("QPushButton { background: #7ff0b0; color: #0b2414; border: 1px solid #44c27a; "
-                         "font-weight: 600; } QPushButton:hover { background: #9af5c4; }")
+        ok.setStyleSheet("QPushButton { background: #9db8f0; color: #0e1d40; border: 1px solid #6f92dc; "
+                         "font-weight: 600; } QPushButton:hover { background: #b5caf5; }")
         ok.setMinimumHeight(40)
         ok.setMinimumWidth(160)
         ok.clicked.connect(self.accept)
@@ -102,13 +104,15 @@ class DebloatWizard(QDialog):
     def _update_src(self):
         v = self.level
         pk = debloat.level_packages(v)
-        n_dev = len(pk & self.device_pkgs) if self.device_pkgs else None
+        n_dev = len([p for p in pk & self.device_pkgs if debloat.matches_level(p, v, self.is_tv)]) \
+            if self.device_pkgs else None
         files = " + ".join("debloat%d.db" % i for i in range(v + 1))
-        txt = "Listes : %s — %d paquets" % (files, len(pk))
+        txt = _("Listes : %s — %d paquets") % (files, len(pk))
         if n_dev is not None:
-            txt += ", <b>%d présent(s) et actif(s) sur cet appareil</b>" % n_dev
-        txt += "<br><span style='color:#555'>Dossier : %s</span>" % html.escape(
-            str(debloat.level_file(0).parent))
+            txt += _(", <b>%d présent(s) et actif(s) sur cet appareil</b>") % n_dev
+        if not self.is_tv:
+            txt += _("<br><b style='color:#c0392b'>Téléphone ou tablette détecté : les composants vitaux "
+                     "(contacts, téléphonie, horloge, clavier, Play Store…) ne seront jamais cochés.</b>")
         self.src.setText(txt)
 
     def showEvent(self, e):
@@ -133,24 +137,24 @@ class PermissionsDialog(QDialog):
         t.setStyleSheet("font-size: 8pt;")
         lay.addWidget(t)
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Rechercher…")
+        self.search.setPlaceholderText(_("Rechercher…"))
         self.search.textChanged.connect(self._filter)
         lay.addWidget(self.search)
         self.list = QListWidget()
         lay.addWidget(self.list, 1)
-        self.btn = QPushButton("Appliquer les permissions")
+        self.btn = QPushButton(_("Appliquer les permissions"))
         self.btn.setObjectName("accent")
         self.btn.setMinimumHeight(36)
         self.btn.clicked.connect(self._apply)
         lay.addWidget(self.btn)
-        n = QLabel("Coche/décoche pour accorder/retirer. En rouge : permissions d'exécution "
+        n = QLabel(_("Coche/décoche pour accorder/retirer. En rouge : permissions d'exécution "
                    "(modifiables). Les autres ne sont en général pas modifiables via adb, sauf "
-                   "permissions de développement (ex. WRITE_SECURE_SETTINGS).")
+                   "permissions de développement (ex. WRITE_SECURE_SETTINGS)."))
         n.setWordWrap(True)
         n.setStyleSheet("font-size: 8pt;")
         lay.addWidget(n)
         self.initial = {}
-        self.list.addItem("Chargement…")
+        self.list.addItem(_("Chargement…"))
         ctl.submit(lambda: adbcore.parse_permissions(adbcore.dumpsys_package(pkg.name), pkg.name),
                    done=self._loaded)
 
@@ -170,7 +174,7 @@ class PermissionsDialog(QDialog):
             self.list.addItem(it)
             self.initial[perm] = granted
         if not perms:
-            self.list.addItem("Aucune permission demandée.")
+            self.list.addItem(_("Aucune permission demandée."))
 
     def _filter(self, t):
         t = t.lower()
@@ -195,12 +199,12 @@ class PermissionsDialog(QDialog):
 
         def work():
             for perm, on in changes:
-                self.ctl.log.emit(">> pm %s %s %s" % ("grant" if on else "revoke", name, perm), "cmd")
+                self.ctl.log.emit(_(">> pm %s %s %s") % ("grant" if on else "revoke", name, perm), "cmd")
                 r = adbcore.grant(name, perm, on)
                 if r.ok and not r.text:
-                    self.ctl.log.emit("[Succès] : %s %s" % (perm, "accordée" if on else "retirée"), "ok")
+                    self.ctl.log.emit(_("[Succès] : %s %s") % (perm, _("accordée") if on else _("retirée")), "ok")
                 else:
-                    self.ctl.log.emit("[Erreur] : " + html.escape(r.text.splitlines()[0] if r.text else "échec"), "err")
+                    self.ctl.log.emit("[Erreur] : " + html.escape(r.text.splitlines()[0] if r.text else _("échec")), "err")
         self.ctl.submit(work)
         self.accept()
 
@@ -221,7 +225,7 @@ class AppInfoDialog(QDialog):
         else:
             ic.setPixmap(style.icon("app", "#3ddc84", 64).pixmap(QSize(56, 56)))
         top.addWidget(ic)
-        t = QLabel("<b style='font-size:13pt'>%s</b><br>%s" % (html.escape(pkg.display), pkg.name))
+        t = QLabel(_("<b style='font-size:13pt'>%s</b><br>%s") % (html.escape(pkg.display), pkg.name))
         t.setTextInteractionFlags(Qt.TextSelectableByMouse)
         top.addWidget(t, 1)
         lay.addLayout(top)
@@ -230,7 +234,7 @@ class AppInfoDialog(QDialog):
         lay.addStretch(1)
         d = debloat.info(pkg.name)
         if d:
-            dl = QLabel("<b>Debloat : %s</b> (%s)<br>%s" % (
+            dl = QLabel(_("<b>Debloat : %s</b> (%s)<br>%s") % (
                 debloat.REMOVAL_FR.get(d.get("removal"), "?"), d.get("list", ""),
                 html.escape(d.get("description", "")).replace("\n", "<br>")))
             dl.setWordWrap(True)
@@ -248,16 +252,16 @@ class AppInfoDialog(QDialog):
         p = self.pkg
         rows = [
             ("Version", "%s (%s)" % (info.get("versionName") or p.version or "?", info.get("versionCode", "?"))),
-            ("Type", "Système" if p.system else "Utilisateur"),
-            ("État", "Supprimée (utilisateur 0)" if p.deleted else ("Désactivée" if p.disabled else "Active")),
-            ("SDK cible / min", "%s / %s" % (info.get("targetSdk", "?"), info.get("minSdk", "?"))),
+            ("Type", _("Système") if p.system else _("Utilisateur")),
+            (_("État"), _("Supprimée (utilisateur 0)") if p.deleted else (_("Désactivée") if p.disabled else _("Active"))),
+            (_("SDK cible / min"), "%s / %s" % (info.get("targetSdk", "?"), info.get("minSdk", "?"))),
             ("ABI", info.get("primaryCpuAbi", "")),
-            ("Installée le", info.get("firstInstallTime", "")),
-            ("Mise à jour le", info.get("lastUpdateTime", "")),
-            ("Installée par", info.get("installer", "")),
+            (_("Installée le"), info.get("firstInstallTime", "")),
+            (_("Mise à jour le"), info.get("lastUpdateTime", "")),
+            (_("Installée par"), info.get("installer", "")),
             ("UID", info.get("uid", "")),
             ("APK", p.path),
-            ("Données", info.get("dataDir", "")),
+            (_("Données"), info.get("dataDir", "")),
         ]
         for k, v in rows:
             lb = QLabel(html.escape(v or "–"))
@@ -270,22 +274,22 @@ class ResolutionDialog(QDialog):
     def __init__(self, ctl, parent=None):
         super().__init__(parent)
         self.ctl = ctl
-        self.setWindowTitle("Résolution de l'écran")
+        self.setWindowTitle(_("Résolution de l'écran"))
         lay = QVBoxLayout(self)
-        self.cur = QLabel("Lecture…")
+        self.cur = QLabel(_("Lecture…"))
         lay.addWidget(self.cur)
         f = QFormLayout()
         self.size = QLineEdit()
-        self.size.setPlaceholderText("ex. 1080x1920")
+        self.size.setPlaceholderText(_("ex. 1080x1920"))
         self.dens = QLineEdit()
-        self.dens.setPlaceholderText("ex. 420")
-        f.addRow("Taille :", self.size)
-        f.addRow("Densité (dpi) :", self.dens)
+        self.dens.setPlaceholderText(_("ex. 420"))
+        f.addRow(_("Taille :"), self.size)
+        f.addRow(_("Densité (dpi) :"), self.dens)
         lay.addLayout(f)
         row = QHBoxLayout()
-        b_set = QPushButton("Appliquer")
+        b_set = QPushButton(_("Appliquer"))
         b_set.clicked.connect(self._apply)
-        b_reset = QPushButton("Réinitialiser")
+        b_reset = QPushButton(_("Réinitialiser"))
         b_reset.clicked.connect(self._reset)
         row.addWidget(b_set)
         row.addWidget(b_reset)
@@ -324,10 +328,10 @@ class PairDialog(QDialog):
     def __init__(self, ctl, parent=None):
         super().__init__(parent)
         self.ctl = ctl
-        self.setWindowTitle("Appairer un appareil (Android 11+)")
+        self.setWindowTitle(_("Appairer un appareil (Android 11+)"))
         lay = QVBoxLayout(self)
-        info = QLabel("Sur l'appareil : Options développeur → Débogage sans fil → "
-                      "« Associer l'appareil avec un code d'association ».")
+        info = QLabel(_("Sur l'appareil : Options développeur → Débogage sans fil → "
+                      "« Associer l'appareil avec un code d'association »."))
         info.setWordWrap(True)
         lay.addWidget(info)
         f = QFormLayout()
@@ -336,10 +340,10 @@ class PairDialog(QDialog):
         self.code = QLineEdit()
         self.code.setPlaceholderText("123456")
         self.conn = QLineEdit()
-        self.conn.setPlaceholderText("Adresse de connexion (IP:port affiché sur l'écran principal)")
-        f.addRow("IP:port d'association :", self.host)
-        f.addRow("Code :", self.code)
-        f.addRow("IP:port de connexion :", self.conn)
+        self.conn.setPlaceholderText(_("Adresse de connexion (IP:port affiché sur l'écran principal)"))
+        f.addRow(_("IP:port d'association :"), self.host)
+        f.addRow(_("Code :"), self.code)
+        f.addRow(_("IP:port de connexion :"), self.conn)
         lay.addLayout(f)
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         bb.accepted.connect(self._go)

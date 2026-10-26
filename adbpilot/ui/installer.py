@@ -18,9 +18,10 @@ from .. import adbcore
 from ..apkparse import BytesReader, LocalReader, RemoteZip, read_apk_meta
 from ..config import PRESETS_DIR, config, user_dir
 from . import style
+from ..i18n import _
 
 EXTS = (".apk", ".apks", ".xapk", ".apkm")
-COLS = ["", "Application", "Fichier", "Paquet", "Version", "Sur l'appareil", "Taille"]
+COLS = ["", "Application", _("Fichier"), _("Paquet"), "Version", _("Sur l'appareil"), _("Taille")]
 C_CHECK, C_NAME, C_FILE, C_PKG, C_VER, C_STATE, C_SIZE = range(7)
 
 
@@ -133,7 +134,7 @@ class InstallerPage(QWidget):
         self.mode = "install"  # install | device
         self.search = ""
         self.watcher = QFileSystemWatcher(self)
-        self.watcher.directoryChanged.connect(lambda _: self._debounce.start(400))
+        self.watcher.directoryChanged.connect(lambda _x: self._debounce.start(400))
         self._debounce = QTimer(self)
         self._debounce.setSingleShot(True)
         self._debounce.timeout.connect(self.refresh)
@@ -151,12 +152,12 @@ class InstallerPage(QWidget):
         left = QVBoxLayout()
         top = QHBoxLayout()
         top.setContentsMargins(6, 4, 6, 0)
-        self.cb_all = QCheckBox("Tout sélectionner")
+        self.cb_all = QCheckBox(_("Tout sélectionner"))
         self.cb_all.clicked.connect(self._select_all)
         top.addWidget(self.cb_all)
         tot = QVBoxLayout()
         tot.setSpacing(0)
-        t1 = QLabel("Total :")
+        t1 = QLabel(_("Total :"))
         t1.setStyleSheet("font-size: 7pt;")
         self.lbl_total = QLabel("0")
         tot.addWidget(t1)
@@ -198,16 +199,16 @@ class InstallerPage(QWidget):
         right = QVBoxLayout()
         right.setContentsMargins(0, 6, 6, 6)
         right.setSpacing(6)
-        b_back = QPushButton("  ←  Retour aux applications")
+        b_back = QPushButton(_("  ←  Retour aux applications"))
         b_back.setStyleSheet("text-align: left;")
         b_back.setMinimumHeight(36)
         b_back.clicked.connect(self.apps_tab.show_apps)
         right.addWidget(b_back)
         g = QGridLayout()
         g.setSpacing(0)
-        b_lp = QPushButton("Charger un preset")
+        b_lp = QPushButton(_("Charger un preset"))
         b_lp.clicked.connect(self.load_preset)
-        b_sp = QPushButton("Enregistrer le preset")
+        b_sp = QPushButton(_("Enregistrer le preset"))
         b_sp.clicked.connect(self.save_preset)
         for b in (b_lp, b_sp):
             b.setMinimumHeight(40)
@@ -215,13 +216,13 @@ class InstallerPage(QWidget):
         g.addWidget(b_sp, 0, 1)
         right.addLayout(g)
         right.addSpacing(12)
-        lab = QLabel("Dossier des fichiers :")
+        lab = QLabel(_("Dossier des fichiers :"))
         lab.setAlignment(Qt.AlignCenter)
         right.addWidget(lab)
         g2 = QGridLayout()
         g2.setSpacing(0)
-        self.b_inst_dir = QPushButton("Dossier\nInstall")
-        self.b_dev_dir = QPushButton("Dossier\nde l'appareil")
+        self.b_inst_dir = QPushButton(_("Dossier\nInstall"))
+        self.b_dev_dir = QPushButton(_("Dossier\nde l'appareil"))
         self.dir_group = QButtonGroup(self)
         for i, b in enumerate((self.b_inst_dir, self.b_dev_dir)):
             b.setCheckable(True)
@@ -231,37 +232,37 @@ class InstallerPage(QWidget):
         self.b_inst_dir.setChecked(True)
         self.dir_group.idClicked.connect(self._set_mode)
         right.addLayout(g2)
-        b_open = QPushButton("Ouvrir le dossier")
+        b_open = QPushButton(_("Ouvrir le dossier"))
         b_open.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.folder()))))
         right.addWidget(b_open)
         right.addSpacing(10)
         row = QHBoxLayout()
         acts = QVBoxLayout()
-        b_add = QPushButton("＋  Ajouter des APK")
-        b_add.setStyleSheet("text-align: left; color: #2fd06b; font-weight: 600;")
+        b_add = QPushButton(_("＋  Ajouter des APK"))
+        b_add.setStyleSheet("text-align: left; color: #4a74d6; font-weight: 600;")
         b_add.clicked.connect(self.add_dialog)
-        b_del = QPushButton("－  Supprimer")
+        b_del = QPushButton(_("－  Supprimer"))
         b_del.setStyleSheet("text-align: left; color: #ff5c5c; font-weight: 600;")
-        b_del.clicked.connect(lambda: self.delete(self._targets(selected_only=True)))
+        b_del.clicked.connect(lambda: self.delete(self._targets()))
         acts.addWidget(b_add)
         acts.addWidget(b_del)
         row.addLayout(acts, 1)
-        self.b_quick = QPushButton("Installation\nrapide")
+        self.b_quick = QPushButton(_("Installation\nrapide"))
         self.b_quick.setObjectName("accentSoft")
         self.b_quick.setMinimumSize(120, 72)
         self.b_quick.clicked.connect(lambda: self.install(self._targets()))
         row.addWidget(self.b_quick)
         right.addLayout(row)
         right.addSpacing(10)
-        for text, key in [("Accorder les permissions (-g)", "install_grant"),
-                          ("Remplacer si déjà installée (-r)", "install_replace"),
-                          ("Autoriser une version antérieure (-d)", "install_downgrade")]:
+        for text, key in [(_("Accorder les permissions (-g)"), "install_grant"),
+                          (_("Remplacer si déjà installée (-r)"), "install_replace"),
+                          (_("Autoriser une version antérieure (-d)"), "install_downgrade")]:
             cb = QCheckBox(text)
             cb.setChecked(bool(config.get(key)))
             cb.toggled.connect(lambda v, k=key: (config.__setitem__(k, v), config.save()))
             right.addWidget(cb)
         right.addStretch(1)
-        self.lbl_sel = QLabel("Sélection : 0")
+        self.lbl_sel = QLabel(_("Sélection : 0"))
         self.lbl_sel.setStyleSheet("border: 1px solid %s; padding: 4px;" % style.colors()["border"])
         right.addWidget(self.lbl_sel)
         w = QWidget()
@@ -285,7 +286,7 @@ class InstallerPage(QWidget):
 
     def _on_device(self):
         name = self.device_name()
-        self.b_dev_dir.setText("Dossier\n%s" % (name or "de l'appareil"))
+        self.b_dev_dir.setText(_("Dossier\n%s") % (name or _("de l'appareil")))
         self.b_dev_dir.setEnabled(bool(name))
         if not name and self.mode == "device":
             self.b_inst_dir.setChecked(True)
@@ -306,7 +307,7 @@ class InstallerPage(QWidget):
         for d in self.watcher.directories():
             self.watcher.removePath(d)
         self.watcher.addPath(str(folder))
-        self.lbl_hint.setText("Glisse des APK ici ou copie-les dans <b>%s</b>" % html.escape(str(folder)))
+        self.lbl_hint.setText(_("Glisse des APK ici ou copie-les dans <b>%s</b>") % html.escape(str(folder)))
         paths = sorted((p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in EXTS),
                        key=lambda p: p.name.lower())
         self.files = []
@@ -328,7 +329,13 @@ class InstallerPage(QWidget):
             gen = self._gen
 
             def work():
-                return [(c, read_file_info(c.path)) for c in todo]
+                out = []
+                for c in todo:
+                    try:
+                        out.append((c, read_file_info(c.path)))
+                    except OSError:
+                        pass  # fichier supprimé/déplacé entre-temps
+                return out
 
             def done(res):
                 if isinstance(res, Exception) or gen != self._gen:
@@ -386,20 +393,20 @@ class InstallerPage(QWidget):
             if f.package and self.ctl.ready:
                 p = dev.get(f.package)
                 if p is None or p.deleted:
-                    state, color = "Non installée", None
+                    state, color = _("Non installée"), None
                 elif not f.version or not p.version:
-                    state, color = "Installée", "#7fb8ff"
+                    state, color = _("Installée"), "#7fb8ff"
                 elif _vkey(f.version) > _vkey(p.version):
-                    state, color = "Mise à jour (%s)" % p.version, "#e6c22e"
+                    state, color = _("Mise à jour (%s)") % p.version, "#e6c22e"
                 elif _vkey(f.version) < _vkey(p.version):
-                    state, color = "Plus récente installée (%s)" % p.version, "#ff8c3a"
+                    state, color = _("Plus récente installée (%s)") % p.version, "#ff8c3a"
                 else:
-                    state, color = "Installée (identique)", "#2fd06b"
+                    state, color = _("Installée (identique)"), "#2fd06b"
             si = QTableWidgetItem(state)
             if color:
                 si.setForeground(QBrush(QColor(color)))
             self.table.setItem(r, C_STATE, si)
-            zi = SortItem(("%.2f Mo" % (f.size / 1048576)).replace(".", ","), f.size)
+            zi = SortItem(("%.2f " % (f.size / 1048576)).replace(".", ",") + _("Mo"), f.size)
             zi.setTextAlignment(int(Qt.AlignRight | Qt.AlignVCenter))
             zi.setForeground(muted)
             self.table.setItem(r, C_SIZE, zi)
@@ -409,7 +416,7 @@ class InstallerPage(QWidget):
 
     def _counts(self):
         self.lbl_total.setText(str(self.table.rowCount()))
-        self.lbl_sel.setText("Sélection : %d" % len(self.checked))
+        self.lbl_sel.setText(_("Sélection : %d") % len(self.checked))
         vis = {str(f.path) for f in self._visible_files()}
         self.cb_all.setChecked(bool(vis) and vis <= self.checked)
 
@@ -441,10 +448,9 @@ class InstallerPage(QWidget):
                     out.append(f)
         return out
 
-    def _targets(self, selected_only=False):
+    def _targets(self):
+        """Fichiers cochés en priorité, sinon les lignes sélectionnées."""
         sel_rows = sorted({i.row() for i in self.table.selectionModel().selectedRows()})
-        if selected_only and sel_rows:
-            return self._row_files(sel_rows)
         if self.checked:
             return [f for f in self.files if str(f.path) in self.checked]
         return self._row_files(sel_rows)
@@ -457,16 +463,16 @@ class InstallerPage(QWidget):
             self.table.selectRow(row)
         sel = self._row_files(sorted({i.row() for i in self.table.selectionModel().selectedRows()}))
         m = QMenu(self)
-        m.addAction("Installer", lambda: self.install(sel))
+        m.addAction(_("Installer"), lambda: self.install(sel))
         m.addSeparator()
         other = "install" if self.mode == "device" else "device"
         if self.device_name():
-            m.addAction("Copier vers le dossier %s" % ("Install" if other == "install" else self.device_name()),
+            m.addAction(_("Copier vers le dossier %s") % ("Install" if other == "install" else self.device_name()),
                         lambda: self.copy_to(sel, other))
-        m.addAction("Afficher dans le dossier", lambda: QDesktopServices.openUrl(
+        m.addAction(_("Afficher dans le dossier"), lambda: QDesktopServices.openUrl(
             QUrl.fromLocalFile(str(sel[0].path.parent))))
         m.addSeparator()
-        m.addAction("Supprimer (corbeille)", lambda: self.delete(sel))
+        m.addAction(_("Supprimer (corbeille)"), lambda: self.delete(sel))
         m.exec(self.table.viewport().mapToGlobal(pos))
 
     # -- fichiers ----------------------------------------------------------
@@ -481,20 +487,20 @@ class InstallerPage(QWidget):
             if src.resolve() == dst.resolve():
                 continue
             if dst.exists():
-                if QMessageBox.question(self, "Fichier existant", "%s existe déjà dans le dossier. Le remplacer ?"
+                if QMessageBox.question(self, _("Fichier existant"), _("%s existe déjà dans le dossier. Le remplacer ?")
                                         % src.name) != QMessageBox.Yes:
                     continue
             shutil.copy2(src, dst)
             self.checked.add(str(dst))
             n += 1
         if n:
-            self.main.toast("%d fichier(s) ajouté(s) à %s" % (n, folder), 3000)
+            self.main.toast(_("%d fichier(s) ajouté(s) à %s") % (n, folder), 3000)
         self.refresh()
 
     def add_dialog(self):
-        files, _ = QFileDialog.getOpenFileNames(
-            self, "Ajouter des applications", str(Path.home()),
-            "Applications Android (*.apk *.apks *.xapk *.apkm)")
+        files, _flt = QFileDialog.getOpenFileNames(
+            self, _("Ajouter des applications"), str(Path.home()),
+            _("Applications Android (*.apk *.apks *.xapk *.apkm)"))
         if files:
             self.add_files(files)
 
@@ -504,14 +510,14 @@ class InstallerPage(QWidget):
         dest.mkdir(parents=True, exist_ok=True)
         for f in files:
             shutil.copy2(f.path, dest / f.path.name)
-        self.main.toast("%d fichier(s) copié(s) vers %s" % (len(files), dest), 3000)
+        self.main.toast(_("%d fichier(s) copié(s) vers %s") % (len(files), dest), 3000)
 
     def delete(self, files):
         if not files:
-            self.main.toast("Sélectionne d'abord des fichiers (clic sur la ligne).")
+            self.main.toast(_("Coche d'abord les fichiers à supprimer."))
             return
         lst = "\n".join("• " + f.path.name for f in files[:12])
-        if QMessageBox.question(self, "Supprimer", "Mettre à la corbeille %d fichier(s) ?\n\n%s"
+        if QMessageBox.question(self, _("Supprimer"), _("Mettre à la corbeille %d fichier(s) ?\n\n%s")
                                 % (len(files), lst)) != QMessageBox.Yes:
             return
         for f in files:
@@ -526,36 +532,58 @@ class InstallerPage(QWidget):
     # -- installation ------------------------------------------------------
     def install(self, files):
         if not self.ctl.ready:
-            self.main.toast("Aucun appareil connecté.")
+            self.main.toast(_("Aucun appareil connecté."))
             return
         if not files:
-            self.main.toast("Coche les applications à installer.")
+            self.main.toast(_("Coche les applications à installer."))
             return
         self.b_quick.setEnabled(False)
         total = len(files)
+        ov = None
+        stop = [False]
+        if total > 1:
+            dev = self.ctl.current.label if self.ctl.current else ""
+            ov = self.main.overlay
+            ov.start(_("Installer %d applications") % total,
+                     _("%s · ne débranche pas l'appareil pendant l'opération") % dev, total,
+                     on_cancel=lambda: stop.__setitem__(0, True))
+
+        def upd(fn):
+            if ov is not None:
+                self.ctl.in_main(lambda _v: fn(ov), None)
 
         def work():
             ok = 0
             for i, f in enumerate(files, 1):
-                self.ctl.status.emit("Installation %d/%d : %s…" % (i, total, f.path.name))
-                self.ctl.log.emit(">> Installation : %s" % html.escape(f.path.name), "cmd")
+                if stop[0]:
+                    break
+                name = f.label or f.path.name
+                upd(lambda o, f=f, name=name: o.item(str(f.path), name, f.icon, "run"))
+                self.ctl.status.emit(_("Installation %d/%d : %s…") % (i, total, f.path.name))
+                self.ctl.log.emit(_(">> Installation : %s") % html.escape(f.path.name), "cmd")
                 if f.path.suffix.lower() == ".apk":
                     r = adbcore.install_apks([str(f.path)])
                 else:
                     r = adbcore.install_bundle(str(f.path), log=lambda s: self.ctl.log.emit(s, "info"))
                 if r.ok and "Failure" not in r.out:
                     ok += 1
-                    self.ctl.log.emit("[Succès] : %s installé" % html.escape(f.path.name), "ok")
+                    self.ctl.log.emit(_("[Succès] : %s installé") % html.escape(f.path.name), "ok")
+                    upd(lambda o, f=f, name=name, k=i: (o.item(str(f.path), name, f.icon, "ok"), o.set_done(k)))
                 else:
-                    self.ctl.log.emit("[Erreur] : %s — %s" % (html.escape(f.path.name), html.escape(r.text)), "err")
+                    self.ctl.log.emit(_("[Erreur] : %s — %s") % (html.escape(f.path.name), html.escape(r.text)), "err")
+                    m = (r.text or "").strip().splitlines()[-1:] or [""]
+                    upd(lambda o, f=f, name=name, k=i, m=m[0]: (o.item(str(f.path), name, f.icon, "err", m),
+                                                                 o.set_done(k)))
             return ok
 
         def done(ok):
             self.b_quick.setEnabled(True)
+            if ov is not None:
+                ov.finish(_("Installation terminée"))
             if isinstance(ok, Exception):
                 return
-            self.main.toast("Installation : %d/%d réussie(s)%s" % (
-                ok, total, "" if ok == total else " — détails dans la Console"))
+            self.main.toast(_("Installation : %d/%d réussie(s)%s") % (
+                ok, total, "" if ok == total else _(" — détails dans la Console")))
             self.ctl.refresh_packages()
         self.ctl.submit(work, done=done)
 
@@ -563,32 +591,32 @@ class InstallerPage(QWidget):
     def save_preset(self):
         names = sorted(Path(k).name for k in self.checked)
         if not names:
-            self.main.toast("Coche d'abord les fichiers à mettre dans le preset.")
+            self.main.toast(_("Coche d'abord les fichiers à mettre dans le preset."))
             return
         PRESETS_DIR.mkdir(parents=True, exist_ok=True)
-        f, _ = QFileDialog.getSaveFileName(self, "Enregistrer le preset d'installation",
-                                           str(PRESETS_DIR / "install.json"), "Preset (*.json)")
+        f, _flt = QFileDialog.getSaveFileName(self, _("Enregistrer le preset d'installation"),
+                                           str(PRESETS_DIR / "install.json"), _("Preset (*.json)"))
         if not f:
             return
         if not f.endswith(".json"):
             f += ".json"
-        Path(f).write_text(json.dumps({"install_files": names}, indent=1, ensure_ascii=False))
-        self.main.set_status("Preset enregistré (%d fichiers)" % len(names))
+        Path(f).write_text(json.dumps({"install_files": names}, indent=1, ensure_ascii=False), encoding="utf-8")
+        self.main.set_status(_("Preset enregistré (%d fichiers)") % len(names))
 
     def load_preset(self):
         PRESETS_DIR.mkdir(parents=True, exist_ok=True)
-        f, _ = QFileDialog.getOpenFileName(self, "Charger un preset d'installation", str(PRESETS_DIR),
-                                           "Preset (*.json)")
+        f, _flt = QFileDialog.getOpenFileName(self, _("Charger un preset d'installation"), str(PRESETS_DIR),
+                                           _("Preset (*.json)"))
         if not f:
             return
         try:
-            d = json.loads(Path(f).read_text())
+            d = json.loads(Path(f).read_text(encoding="utf-8"))
         except ValueError:
             return
         names = set(d.get("install_files", [])) if isinstance(d, dict) else set()
         self.checked = {str(x.path) for x in self.files if x.path.name in names}
         self._fill()
-        self.main.set_status("Preset chargé : %d/%d fichiers trouvés" % (len(self.checked), len(names)))
+        self.main.set_status(_("Preset chargé : %d/%d fichiers trouvés") % (len(self.checked), len(names)))
 
     # -- glisser-déposer ---------------------------------------------------
     def dragEnterEvent(self, e):

@@ -1,18 +1,19 @@
-<p align="center">
-  <img src="screenshots/icon.png" alt="ADB Pilot" width="128">
-</p>
+# ADB Pilot
 
-<h1 align="center">ADB Pilot</h1>
+**Gestionnaire d'appareils Android via ADB pour Linux et Windows, natif — sans Wine.**
 
-**Gestionnaire d'appareils Android via ADB pour Linux, natif — sans Wine.**
-
-ADB Pilot permet de gérer un téléphone ou une box Android TV depuis Ubuntu / Linux Mint : lister les applications avec leurs noms, icônes et versions, désactiver ou désinstaller le bloatware, installer des APK / XAPK / APKS / APKM, sauvegarder des applications, suivre les processus, piloter l'écran avec scrcpy et ouvrir une console adb / fastboot.
+ADB Pilot permet de gérer un téléphone ou une box Android TV depuis Ubuntu / Linux Mint ou Windows 10 / 11 : lister les applications avec leurs noms, icônes et versions, désactiver ou désinstaller le bloatware, installer des APK / XAPK / APKS / APKM, sauvegarder des applications, suivre les processus, piloter l'écran avec scrcpy et ouvrir une console adb / fastboot.
 
 Développé par **ParadoxXx Squad** — [github.com/rerem8433/adb_pilot](https://github.com/rerem8433/adb_pilot)
 
 🇫🇷 [Français](#adb-pilot) · 🇬🇧 [English](#adb-pilot--english)
 
 > Interface disponible en **français** et en **anglais** (Paramètres → Interface → Langue).
+
+<p align="center">
+  <img src="screenshots/Applications.png" alt="ADB Pilot — liste des applications" width="900"><br>
+  <em>Onglet Applications : noms réels, icônes et versions, actions groupées et assistant debloat</em>
+</p>
 
 ---
 
@@ -52,14 +53,6 @@ ADB Pilot est donc une **réécriture complète pour Linux**, qui reprend l'ergo
 
 ## Captures d'écran
 
-**Applications** : noms réels, icônes et versions, actions groupées et assistant debloat
-
-![Onglet Applications](screenshots/Applications.png)
-
-**Store** : magasin d'applications pour installer en un clic une sélection d'« incontournables ».
-
-![Onglet Store](screenshots/Store.png)
-
 **Outils** : infos de l'appareil (processeur, RAM, stockage, vraie version d'Android) et scrcpy lancé à côté.
 
 ![Onglet Outils avec scrcpy](screenshots/Outils.png)
@@ -92,20 +85,43 @@ Le paquet `.deb` est prévu pour les distributions **64 bits (amd64)** qui ont a
 
 Fonctionne sous X11 et Wayland.
 
+**Windows**
+
+| Système | Statut |
+|---|---|
+| Windows 10 (1809+) et Windows 11, x64 | ✅ Compatible |
+| Windows 11 ARM64 (Snapdragon X…) | ⚠️ Version ARM64 native **non testée sur un vrai appareil ARM** — merci de signaler tout problème. La version x64 fonctionne aussi en émulation. |
+
 ## Installation
+
+### Linux
 
 1. Télécharge le dernier `adbpilot_X.Y.Z_amd64.deb` dans les [Releases](https://github.com/rerem8433/adb_pilot/releases).
 2. Installe-le **avec `apt`**, qui récupère automatiquement les dépendances :
 
 ```bash
-sudo apt install ./adbpilot_1.2.1_amd64.deb
+sudo apt install ./adbpilot_X.Y.Z_amd64.deb
 ```
 
 Le double-clic sur le fichier (Gestionnaire de paquets / GDebi) fonctionne aussi. Si tu utilises `dpkg -i`, lance ensuite `sudo apt -f install` pour compléter les dépendances.
 
 ADB Pilot apparaît ensuite dans le menu des applications (catégorie Utilitaires), ou se lance avec la commande `adbpilot`.
 
-### Dépendances
+### Windows
+
+1. Télécharge dans les [Releases](https://github.com/rerem8433/adb_pilot/releases) :
+   - `ADB-Pilot-X.Y.Z-windows-x64-setup.exe` pour un PC classique (Intel / AMD) ;
+   - `ADB-Pilot-X.Y.Z-windows-arm64-setup.exe` pour un PC ARM (Snapdragon X…) — *non testée sur un vrai appareil ARM*.
+2. Lance l'installateur. **adb, fastboot et scrcpy sont inclus**, rien d'autre à installer.
+3. Les fichiers `.apk` ne sont **pas** associés automatiquement : une case (décochée par défaut) permet seulement d'ajouter ADB Pilot au menu *Ouvrir avec*.
+
+Une version **portable** (`…-portable.zip`, sans installation) est aussi disponible.
+
+> **USB sous Windows** : l'appareil n'apparaît que si un pilote ADB est installé (*Google USB Driver* ou celui du fabricant : Samsung, Xiaomi…). Un bouton **Paramètres → Pilote USB ADB** ouvre la page de Google. En **Wi-Fi**, aucun pilote n'est nécessaire.
+>
+> Windows SmartScreen peut afficher « Windows a protégé votre ordinateur » (installateur non signé) : *Informations complémentaires* → *Exécuter quand même*.
+
+### Dépendances (Linux)
 
 Rien à installer à la main. Tout est installé automatiquement par `apt` lors de l'installation du `.deb`.
 
@@ -113,17 +129,17 @@ Rien à installer à la main. Tout est installé automatiquement par `apt` lors 
 
 | Paquet | Rôle |
 |---|---|
+| `adb` | Communication avec les appareils Android |
+| `scrcpy` | Affichage et contrôle de l'écran |
 | `python3` (≥ 3.10) | Exécution de l'application |
 | `libxcb-cursor0`, `libxcb-icccm4`, `libxcb-keysyms1`, `libxcb-image0`, `libxcb-render-util0`, `libxcb-shape0`, `libxcb-xkb1`, `libxcb-randr0`, `libxcb-util1`, `libxkbcommon0`, `libxkbcommon-x11-0` | Affichage Qt 6 sous X11 |
 | `libwayland-client0`, `libwayland-cursor0`, `libwayland-egl1` | Affichage sous Wayland |
 | `libegl1`, `libgl1`, `libfontconfig1`, `libfreetype6`, `libdbus-1-3`, `libglib2.0-0` | Rendu, polices, intégration au bureau |
 
-**Recommandées** (installées par défaut avec `apt`) :
+**Recommandée** (installée par défaut avec `apt`) :
 
 | Paquet | Rôle |
 |---|---|
-| `adb` | Communication avec les appareils Android |
-| `scrcpy` | Affichage et contrôle de l'écran |
 | `android-sdk-platform-tools-common` | Règles udev : accès aux appareils USB sans `sudo` |
 
 **Suggérée** : `fastboot`, pour les commandes fastboot de la console.
@@ -138,7 +154,9 @@ Qt 6 / PySide6 est **embarqué dans le paquet**. Il n'y a rien à installer via 
 sudo apt remove adbpilot
 ```
 
-Tes fichiers dans `~/ADB_Pilot` sont conservés.
+Sous Windows : *Paramètres → Applications → ADB Pilot → Désinstaller*.
+
+Tes fichiers dans `~/ADB_Pilot` (Windows : `%USERPROFILE%\ADB_Pilot`) sont conservés.
 
 ## Premiers pas
 
@@ -155,9 +173,11 @@ python -m adbpilot                                   # lancer sans installer
 python packaging/build.py venv/lib/python3.*/site-packages out   # construire le .deb
 ```
 
+**Windows** : les installateurs x64 et ARM64 sont construits automatiquement par GitHub Actions (`.github/workflows/windows.yml`) à chaque publication de release. En local, sous Windows : `pip install PySide6-Essentials==6.9.3 pyinstaller pillow certifi`, puis `python packaging/windows/build_windows.py` et Inno Setup avec `packaging/windows/adbpilot.iss`.
+
 ## Dossiers
 
-Tout est centralisé dans `~/ADB_Pilot/` (sans espace, pratique en ligne de commande) :
+Tout est centralisé dans `~/ADB_Pilot/` (Windows : `%USERPROFILE%\ADB_Pilot\`, sans espace, pratique en ligne de commande) :
 
 | Dossier | Contenu |
 |---|---|
@@ -167,7 +187,7 @@ Tout est centralisé dans `~/ADB_Pilot/` (sans espace, pratique en ligne de comm
 | `~/ADB_Pilot/apps/<appareil>/` | Sauvegardes : `nomappli_(paquet)_version.apk` (`.apks` pour les applis en plusieurs fichiers) |
 | `~/ADB_Pilot/store/` | APK téléchargés depuis l'onglet Store (gardés pour tes autres boîtiers) |
 
-La configuration est dans `~/.config/adbpilot/` et le cache des icônes dans `~/.cache/adbpilot/`.
+La configuration est dans `~/.config/adbpilot/` et le cache des icônes dans `~/.cache/adbpilot/` (Windows : `%APPDATA%\adbpilot` et `%LOCALAPPDATA%\adbpilot`).
 
 ## Listes de debloat
 
@@ -209,11 +229,12 @@ Copyright © 2026 ParadoxXx Squad
 
 ---
 ---
-<h1 align="center"> 🇬🇧 ADB Pilot — English 🇬🇧 </h1>
 
-**Native Linux Android device manager over ADB — no Wine needed.**
+# ADB Pilot — English
 
-ADB Pilot lets you manage an Android phone or Android TV box from Ubuntu / Linux Mint. You can:
+**Native Android device manager over ADB for Linux and Windows — no Wine needed.**
+
+ADB Pilot lets you manage an Android phone or Android TV box from Ubuntu / Linux Mint or Windows 10 / 11. You can:
 - list apps with their real names, icons and versions;
 - disable or uninstall bloatware;
 - install APK / XAPK / APKS / APKM files;
@@ -226,6 +247,10 @@ Developed by **ParadoxXx Squad** — [github.com/rerem8433/adb_pilot](https://gi
 
 > User interface available in **French** and **English** (Paramètres / Settings → Interface → Language).
 
+<p align="center">
+  <img src="screenshots/Applications.png" alt="ADB Pilot — application list" width="900"><br>
+  <em>Applications tab: real names, icons and versions, batch actions and debloat wizard</em>
+</p>
 
 ## Why this project?
 
@@ -264,17 +289,9 @@ ADB Pilot is a **complete rewrite for Linux** that follows the workflow of ADB A
 
 ## Screenshots
 
-**Applications** : Reals names, package names, icons + versions + sizes, Debloat assistant
-
-![Apps tab](screenshots/Applications.png)
-
 **Tools** (*Outils*): device info (CPU, RAM, storage, real Android version), with scrcpy running alongside.
 
 ![Tools tab with scrcpy](screenshots/Outils.png)
-
-**Store** : AppStore to direct install some apps chosen by developper.
-
-![Store tab](screenshots/Store.png)
 
 **Processes** (*Processus*): running apps, RAM usage in %, foreground app (green ▶).
 
@@ -304,20 +321,43 @@ The `.deb` package targets **64-bit (amd64)** distributions with at least **glib
 
 Works on both X11 and Wayland.
 
+**Windows**
+
+| System | Status |
+|---|---|
+| Windows 10 (1809+) and Windows 11, x64 | ✅ Compatible |
+| Windows 11 ARM64 (Snapdragon X…) | ⚠️ Native ARM64 build **not tested on real ARM hardware** — please report any issue. The x64 build also runs under emulation. |
+
 ## Installation
+
+### Linux
 
 1. Download the latest `adbpilot_X.Y.Z_amd64.deb` from the [Releases](https://github.com/rerem8433/adb_pilot/releases) page.
 2. Install it **with `apt`**, which pulls in the dependencies automatically:
 
 ```bash
-sudo apt install ./adbpilot_1.2.1_amd64.deb
+sudo apt install ./adbpilot_X.Y.Z_amd64.deb
 ```
 
 Double-clicking the file (Package Installer / GDebi) also works. If you use `dpkg -i`, run `sudo apt -f install` afterwards to complete the dependencies.
 
 ADB Pilot then appears in the application menu (Utilities), or can be started with the `adbpilot` command.
 
-### Dependencies
+### Windows
+
+1. Download from the [Releases](https://github.com/rerem8433/adb_pilot/releases) page:
+   - `ADB-Pilot-X.Y.Z-windows-x64-setup.exe` for a regular PC (Intel / AMD);
+   - `ADB-Pilot-X.Y.Z-windows-arm64-setup.exe` for an ARM PC (Snapdragon X…) — *not tested on real ARM hardware*.
+2. Run the installer. **adb, fastboot and scrcpy are included**, nothing else to install.
+3. `.apk` files are **not** associated automatically: an option (unchecked by default) only adds ADB Pilot to the *Open with* menu.
+
+A **portable** build (`…-portable.zip`, no installation) is also available.
+
+> **USB on Windows**: the device only shows up once an ADB driver is installed (*Google USB Driver* or the manufacturer's: Samsung, Xiaomi…). **Settings → ADB USB driver** opens Google's page. Over **Wi-Fi**, no driver is needed.
+>
+> Windows SmartScreen may say "Windows protected your PC" (unsigned installer): *More info* → *Run anyway*.
+
+### Dependencies (Linux)
 
 Nothing to install by hand. Everything is installed automatically by `apt` when installing the `.deb`.
 
@@ -325,6 +365,8 @@ Nothing to install by hand. Everything is installed automatically by `apt` when 
 
 | Package | Purpose |
 |---|---|
+| `adb` | Communication with Android devices |
+| `scrcpy` | Screen mirroring and control |
 | `python3` (≥ 3.10) | Runs the application |
 | `libxcb-cursor0`, `libxcb-icccm4`, `libxcb-keysyms1`, `libxcb-image0`, `libxcb-render-util0`, `libxcb-shape0`, `libxcb-xkb1`, `libxcb-randr0`, `libxcb-util1`, `libxkbcommon0`, `libxkbcommon-x11-0` | Qt 6 display on X11 |
 | `libwayland-client0`, `libwayland-cursor0`, `libwayland-egl1` | Display on Wayland |
@@ -334,8 +376,6 @@ Nothing to install by hand. Everything is installed automatically by `apt` when 
 
 | Package | Purpose |
 |---|---|
-| `adb` | Communication with Android devices |
-| `scrcpy` | Screen mirroring and control |
 | `android-sdk-platform-tools-common` | udev rules: USB device access without `sudo` |
 
 **Suggested**: `fastboot`, for fastboot commands in the console.
@@ -350,7 +390,9 @@ Qt 6 / PySide6 is **bundled in the package**. Nothing needs to be installed with
 sudo apt remove adbpilot
 ```
 
-Your files in `~/ADB_Pilot` are kept.
+On Windows: *Settings → Apps → ADB Pilot → Uninstall*.
+
+Your files in `~/ADB_Pilot` (Windows: `%USERPROFILE%\ADB_Pilot`) are kept.
 
 ## Getting started
 
@@ -367,9 +409,11 @@ python -m adbpilot                                   # run without installing
 python packaging/build.py venv/lib/python3.*/site-packages out   # build the .deb
 ```
 
+**Windows**: the x64 and ARM64 installers are built automatically by GitHub Actions (`.github/workflows/windows.yml`) whenever a release is published. Locally, on Windows: `pip install PySide6-Essentials==6.9.3 pyinstaller pillow certifi`, then `python packaging/windows/build_windows.py` and Inno Setup with `packaging/windows/adbpilot.iss`.
+
 ## Folders
 
-Everything lives in `~/ADB_Pilot/` (no spaces, easy to use from a terminal):
+Everything lives in `~/ADB_Pilot/` (Windows: `%USERPROFILE%\ADB_Pilot\`; no spaces, easy to use from a terminal):
 
 | Folder | Content |
 |---|---|
@@ -379,7 +423,7 @@ Everything lives in `~/ADB_Pilot/` (no spaces, easy to use from a terminal):
 | `~/ADB_Pilot/apps/<device>/` | Backups: `appname_(package)_version.apk` (`.apks` for split apps) |
 | `~/ADB_Pilot/store/` | APKs downloaded from the Store tab (kept for your other boxes) |
 
-Settings are stored in `~/.config/adbpilot/` and the icon cache in `~/.cache/adbpilot/`.
+Settings are stored in `~/.config/adbpilot/` and the icon cache in `~/.cache/adbpilot/` (Windows: `%APPDATA%\adbpilot` and `%LOCALAPPDATA%\adbpilot`).
 
 ## Debloat lists
 

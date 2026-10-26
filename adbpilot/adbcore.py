@@ -1,7 +1,6 @@
 """Couche adb : exécution des commandes, appareils, paquets, lecture d'APK à distance."""
 from __future__ import annotations
 
-import os
 import re
 import shlex
 import shutil
@@ -11,6 +10,8 @@ from pathlib import Path
 
 from .apkparse import RangeReader
 from .config import DATA_DIR, config
+from .i18n import _
+from .osutil import EXE, bundled_tools_dir, is_exe, no_window
 
 BLOCK = 4096
 
@@ -24,28 +25,37 @@ def q(s: str) -> str:
 # Localisation des binaires
 # ---------------------------------------------------------------------------
 
+def _tool(*parts) -> Path | None:
+    """Cherche un binaire dans ~/.local/share/adbpilot puis dans les outils embarqués (Windows)."""
+    name = parts[-1] + EXE
+    for base in (DATA_DIR, bundled_tools_dir()):
+        if base is not None:
+            c = base.joinpath(*parts[:-1], name)
+            if is_exe(c):
+                return c
+    return None
+
+
 def find_adb() -> str | None:
     p = config.get("adb_path") or ""
-    if p and os.access(p, os.X_OK):
+    if p and is_exe(p):
         return p
-    c = DATA_DIR / "platform-tools" / "adb"
-    if c.is_file() and os.access(c, os.X_OK):
+    c = _tool("platform-tools", "adb")
+    if c:
         return str(c)
     w = shutil.which("adb")
     if w:
         return w
-    c = DATA_DIR / "scrcpy" / "adb"
-    if c.is_file() and os.access(c, os.X_OK):
-        return str(c)
-    return None
+    c = _tool("scrcpy", "adb")
+    return str(c) if c else None
 
 
 def find_scrcpy() -> str | None:
     p = config.get("scrcpy_path") or ""
-    if p and os.access(p, os.X_OK):
+    if p and is_exe(p):
         return p
-    c = DATA_DIR / "scrcpy" / "scrcpy"
-    if c.is_file() and os.access(c, os.X_OK):
+    c = _tool("scrcpy", "scrcpy")
+    if c:
         return str(c)
     return shutil.which("scrcpy")
 
@@ -53,7 +63,7 @@ def find_scrcpy() -> str | None:
 def find_fastboot() -> str | None:
     adb = find_adb()
     if adb:
-        c = Path(adb).with_name("fastboot")
+        c = Path(adb).with_name("fastboot" + EXE)
         if c.is_file():
             return str(c)
     return shutil.which("fastboot")
@@ -98,7 +108,7 @@ class Adb:
     def run(self, args, timeout=60, serial=True, input_bytes=None) -> Result:
         try:
             cp = subprocess.run(self._base(serial) + list(args), capture_output=True,
-                                timeout=timeout, input=input_bytes)
+                                timeout=timeout, input=input_bytes, **no_window())
         except FileNotFoundError as e:
             return Result(127, "", str(e))
         except subprocess.TimeoutExpired:
@@ -107,7 +117,7 @@ class Adb:
                       cp.stderr.decode("utf-8", "replace"))
 
     def run_bytes(self, args, timeout=120, serial=True) -> bytes:
-        cp = subprocess.run(self._base(serial) + list(args), capture_output=True, timeout=timeout)
+        cp = subprocess.run(self._base(serial) + list(args), capture_output=True, timeout=timeout, **no_window())
         return cp.stdout
 
     def shell(self, cmd: str, timeout=60) -> Result:
@@ -294,10 +304,18 @@ def _real_sdk():
 
 
 def device_specs(info: dict) -> dict:
-    script = ("head -1 /proc/meminfo; echo @@DF; df -k /data 2>/dev/null || df /data; "
+    script = ("head -1 /proc/meminfo; echo @@TV; getprop ro.build.characteristics; "
+              "pm list features 2>/dev/null | grep -ciE 'leanback|android.hardware.type.television'; "
+              "echo @@DF; df -k /data 2>/dev/null || df /data; "
               "echo @@CPU; grep -iE '^(Hardware|model name|Processor)' /proc/cpuinfo | head -3; "
               "echo @@NCPU; ls -d /sys/devices/system/cpu/cpu[0-9]* 2>/dev/null | wc -l; "
-              "echo @@FREQ; cat /sys/devices/system/cpu/cpu*/cpufreq/cpuinfo_max_freq 2>/dev/null")
+              "echo @@FREQ; cat /sys/devices/system/cpu/cpu*/cpufreq/cpuinfo_max_freq 2>/dev/null; "
+              # RAM physique : les box truquées gonflent souvent MemTotal, pas zoneinfo / device-tree
+              "echo @@ZONE; grep -E '^ +present' /proc/zoneinfo 2>/dev/null; "
+              "echo @@DTC; od -An -tx1 '/sys/firmware/devicetree/base/#address-cells' "
+              "'/sys/firmware/devicetree/base/#size-cells' 2>/dev/null; "
+              "echo @@DT; for f in /sys/firmware/devicetree/base/memory*/reg; do "
+              "[ -r \"$f\" ] && od -An -tx1 -v \"$f\"; echo '|'; done 2>/dev/null")
     out = adb.shell(script, timeout=20).out
     sec = {"MEM": ""}
     cur = "MEM"
@@ -308,29 +326,50 @@ def device_specs(info: dict) -> dict:
         else:
             sec[cur] = sec.get(cur, "") + ln + "\n"
     sp: dict = {}
+    tv = sec.get("TV", "")
+    nums = [int(x) for x in re.findall(r"^\d+$", tv, re.M)]
+    first = tv.strip().splitlines()[0].lower() if tv.strip() else ""
+    sp["is_tv"] = bool(re.search(r"\btv\b", first)) or bool(nums and nums[0] > 0)
     m = re.search(r"MemTotal:\s+(\d+)", sec.get("MEM", ""))
     if m:
-        gb = int(m.group(1)) / 1048576
+        mem_kb = int(m.group(1))
+        real_kb = physical_ram_kb(sec)
+        global _REAL_RAM_KB
+        _REAL_RAM_KB = None
+        gb = mem_kb / 1048576
         sp["ram_exact"] = "%s Go (MemTotal)" % _fmt_num(round(gb, 2))
-        sp["ram_gb"] = _fmt_num(_round_up(gb * 1.0, [0.5, 1, 1.5, 2, 3, 4, 6, 8, 10, 12, 16, 18, 24, 32]))
-    df = sec.get("DF", "")
-    total_kb = None
-    for ln in df.splitlines()[1:]:
+        steps = [0.5, 1, 1.5, 2, 3, 4, 6, 8, 10, 12, 16, 18, 24, 32]
+        if real_kb and real_kb < mem_kb * 0.9:
+            _REAL_RAM_KB = real_kb
+            rgb = real_kb / 1048576
+            sp["ram_fake"] = _fmt_num(_round_up(gb, steps))
+            sp["ram_exact"] = _("%s Go réels (MemTotal annonce %s Go)") % (
+                _fmt_num(round(rgb, 2)), _fmt_num(round(gb, 2)))
+            gb = rgb
+        sp["ram_gb"] = _fmt_num(_round_up(gb, steps))
+    def _kb(tok):
+        if tok.isdigit():
+            return int(tok)
+        mm = re.match(r"([\d.,]+)([KMGT])", tok)
+        if mm:
+            return float(mm.group(1).replace(",", ".")) * {"K": 1, "M": 1024, "G": 1048576, "T": 1073741824}[mm.group(2)]
+        return None
+    total_kb = used_kb = None
+    for ln in sec.get("DF", "").splitlines()[1:]:
         parts = ln.split()
-        if len(parts) >= 2:
-            if parts[1].isdigit():
-                total_kb = int(parts[1])
-            else:
-                mm = re.match(r"([\d.,]+)([KMGT])", parts[1])
-                if mm:
-                    mult = {"K": 1, "M": 1024, "G": 1048576, "T": 1073741824}[mm.group(2)]
-                    total_kb = float(mm.group(1).replace(",", ".")) * mult
+        if len(parts) >= 4:
+            total_kb, used_kb, avail_kb = _kb(parts[1]), _kb(parts[2]), _kb(parts[3])
+            if total_kb and avail_kb is not None:
+                used_kb = total_kb - avail_kb  # inclut l'espace réservé, comme dans les Paramètres Android
             if total_kb:
                 break
     if total_kb:
         gb = total_kb / 1048576
-        sp["storage_exact"] = "%s Go utilisables" % _fmt_num(round(gb, 1))
+        sp["storage_exact"] = _("%s Go utilisables") % _fmt_num(round(gb, 1))
         sp["storage_gb"] = _fmt_num(_round_up(gb, [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]))
+        sp["storage_total"] = gb
+        if used_kb is not None:
+            sp["storage_used"] = max(0.0, used_kb / 1048576)
     cpuinfo = sec.get("CPU", "")
     sp["soc"] = soc_name(info, cpuinfo)
     n = sec.get("NCPU", "").strip()
@@ -362,12 +401,41 @@ def device_specs(info: dict) -> dict:
     return sp
 
 
+_REAL_RAM_KB = None
+
+
+def physical_ram_kb(sec: dict) -> int | None:
+    """Quantité de RAM physique d'après /proc/zoneinfo et le device-tree (la plus petite valeur plausible)."""
+    vals = []
+    pages = sum(int(x) for x in re.findall(r"present\s+(\d+)", sec.get("ZONE", "")))
+    if pages:
+        vals.append(pages * 4)
+    cells = [int(x, 16) for x in sec.get("DTC", "").split()]
+    ac = int.from_bytes(bytes(cells[0:4]), "big") if len(cells) >= 8 else 2
+    sc = int.from_bytes(bytes(cells[4:8]), "big") if len(cells) >= 8 else 2
+    total = 0
+    if 1 <= ac <= 3 and 1 <= sc <= 2:
+        for blob in sec.get("DT", "").split("|"):
+            b = bytes(int(x, 16) for x in blob.split() if re.fullmatch(r"[0-9a-fA-F]{2}", x))
+            step = 4 * (ac + sc)
+            for i in range(0, len(b) - step + 1, step):
+                total += int.from_bytes(b[i + 4 * ac:i + step], "big")
+    if total:
+        vals.append(total // 1024)
+    vals = [v for v in vals if v >= 131072]  # >= 128 Mo, sinon valeur incohérente
+    return min(vals) if vals else None
+
+
 def ram_info():
     r = adb.shell("cat /proc/meminfo", timeout=10)
     vals = dict(re.findall(r"^(\w+):\s+(\d+)", r.out, re.M))
     total = int(vals.get("MemTotal", 0)) // 1024
     avail = int(vals.get("MemAvailable", vals.get("MemFree", 0))) // 1024
-    return total - avail, total
+    used = total - avail
+    if _REAL_RAM_KB:  # RAM gonflée par la ROM : on affiche la vraie capacité
+        total = _REAL_RAM_KB // 1024
+        used = min(used, total)
+    return used, total
 
 
 def device_ip():
@@ -388,13 +456,17 @@ def device_ip():
 class Package:
     name: str
     path: str = ""
-    size: int = 0
+    size: int = 0          # APK + données (si connues)
+    apk_size: int = 0      # base.apk + splits
+    base_size: int = 0     # base.apk seul (lecture du manifeste/icône)
+    data_size: int | None = None  # données + cache (dumpsys diskstats), None = inconnu
     system: bool = False
     disabled: bool = False
     deleted: bool = False
     label: str | None = None
     icon: object = None  # QImage
     version: str | None = None
+    meta_done: bool = False  # nom/icône déjà lus (même vides)
 
     @property
     def display(self):
@@ -407,8 +479,56 @@ LIST_SCRIPT = (
     "echo @@SYS; pm list packages -s -u 2>/dev/null; "
     "echo @@DIS; pm list packages -d 2>/dev/null; "
     "echo @@SIZE; pm list packages -f -u 2>/dev/null | while read -r l; do "
-    "p=${l#package:}; p=${p%=*}; echo \"$(stat -c %s \"$p\" 2>/dev/null)|$p\"; done"
+    "p=${l#package:}; p=${p%=*}; "
+    "case $p in /data/app/*) f=\"${p%/*}\"/*.apk;; *) f=$p;; esac; "
+    "s=0; for z in $(stat -c %s $f 2>/dev/null); do s=$((s+z)); done; "
+    "b=$(stat -c %s \"$p\" 2>/dev/null); echo \"$s|${b:-0}|$p\"; done; "
+    "echo @@DISK; dumpsys diskstats 2>/dev/null | grep -E '^(Package Names|App Data Sizes|Cache Sizes):'"
 )
+
+
+_DISK_TRIED: set = set()
+_DISKSTATS_JOB = 1145656139  # DiskStatsLoggingService (0x4449534b, "DISK")
+
+
+def _compute_diskstats() -> dict[str, int]:
+    """Android ne calcule ces tailles qu'en tâche de fond (~1x/jour) : on force le calcul une fois."""
+    import time
+    _DISK_TRIED.add(adb.serial)
+    # La tâche ne tourne que « en charge » : sur une box sans batterie, on simule la charge le temps du calcul
+    adb.shell("dumpsys battery set ac 1; dumpsys battery set status 2; sleep 1; "
+              "cmd jobscheduler run -f android %d" % _DISKSTATS_JOB, timeout=20)
+    try:
+        for _i in range(10):
+            time.sleep(2)
+            r = adb.shell("dumpsys diskstats 2>/dev/null | grep -E '^(Package Names|App Data Sizes|Cache Sizes):'",
+                          timeout=20)
+            d = parse_diskstats(r.out.splitlines())
+            if d:
+                return d
+        return {}
+    finally:
+        adb.shell("dumpsys battery reset", timeout=10)
+
+
+def parse_diskstats(lines) -> dict[str, int]:
+    """dumpsys diskstats -> {paquet: données + cache en octets} (valeurs mises à jour par Android ~1x/jour)."""
+    import json as _json
+    vals = {}
+    for ln in lines:
+        k, _, v = ln.partition(":")
+        try:
+            vals[k.strip()] = _json.loads(v.strip())
+        except ValueError:
+            pass
+    names = vals.get("Package Names") or []
+    data = vals.get("App Data Sizes") or []
+    cache = vals.get("Cache Sizes") or []
+    out = {}
+    for i, n in enumerate(names):
+        if i < len(data):
+            out[n] = int(data[i]) + (int(cache[i]) if i < len(cache) else 0)
+    return out
 
 
 def list_packages() -> list[Package]:
@@ -435,13 +555,23 @@ def list_packages() -> list[Package]:
             continue
         pkgs[name] = Package(name=name, path=path)
     sizes = {}
+    bases = {}
     for ln in sections.get("SIZE", []):
-        sz, _, path = ln.partition("|")
+        sz, _, rest = ln.partition("|")
+        base, _, path = rest.partition("|")
         if sz.isdigit():
             sizes[path] = int(sz)
+        if base.isdigit():
+            bases[path] = int(base)
     inst, sysp, dis = names("INST"), names("SYS"), names("DIS")
+    disk = parse_diskstats(sections.get("DISK", []))
+    if not disk and adb.serial not in _DISK_TRIED:
+        disk = _compute_diskstats()
     for p in pkgs.values():
-        p.size = sizes.get(p.path, 0)
+        p.apk_size = sizes.get(p.path, 0)
+        p.base_size = bases.get(p.path, 0) or p.apk_size
+        p.data_size = disk.get(p.name)
+        p.size = p.apk_size + (p.data_size or 0)
         p.system = p.name in sysp or p.path.startswith(("/system", "/product", "/vendor",
                                                         "/system_ext", "/apex", "/odm"))
         p.disabled = p.name in dis
@@ -553,7 +683,7 @@ class AdbRangeReader(RangeReader):
         base = [find_adb() or "adb"]
         if self.serial:
             base += ["-s", self.serial]
-        data = subprocess.run(base + args, capture_output=True, timeout=180).stdout
+        data = subprocess.run(base + args, capture_output=True, timeout=180, **no_window()).stdout
         out = []
         p = 0
         for expected, rel, n in plan:

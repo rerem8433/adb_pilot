@@ -1,3 +1,8 @@
+com.android.camera2
+com.android.captiveportallogin
+com.android.companiondevicemanager
+com.android.deskclock
+com.android.gallery3d
 com.android.stk
 com.asus.appinstallationservice
 com.bit.androsmart.kbinapp
@@ -9,6 +14,13 @@ com.enjoy.security
 com.google.android.apps.assistant
 com.google.android.apps.navlite
 com.google.android.apps.searchlite
+com.google.android.deskclock
+com.google.android.googlequicksearchbox
+com.google.android.katniss
+com.google.android.syncadapters.calendar
+com.google.android.syncadapters.contacts
+com.google.android.tts
+com.google.android.tv.remote.service
 com.lenovo.anyshare.gps
 com.lenovo.leos.cloud.sync.row
 com.lenovo.lsf

@@ -6,12 +6,14 @@ import re
 
 from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QBrush, QColor, QFont, QIcon, QPixmap
-from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QHBoxLayout, QHeaderView, QLabel,
+from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QHBoxLayout, QLabel,
                                QMenu, QMessageBox, QPushButton, QTableWidget, QTableWidgetItem,
                                QVBoxLayout, QWidget)
 
+from .. import adbcore
 from ..adbcore import adb, q
 from . import style
+from ..i18n import _
 
 PS_SCRIPT = ("head -1 /proc/meminfo; echo @@PS; ps -A -o PID,USER,RSS,NAME 2>/dev/null; echo @@TOP; "
              "dumpsys activity activities 2>/dev/null | grep -m 4 -E 'ResumedActivity'")
@@ -64,8 +66,8 @@ def list_processes():
 
 def fmt_mem(kb):
     if kb >= 1024 * 1024:
-        return ("%.2f Go" % (kb / 1048576)).replace(".", ",")
-    return ("%.1f Mo" % (kb / 1024)).replace(".", ",")
+        return ("%.2f " % (kb / 1048576)).replace(".", ",") + _("Go")
+    return ("%.1f " % (kb / 1024)).replace(".", ",") + _("Mo")
 
 
 class NumItem(QTableWidgetItem):
@@ -79,7 +81,7 @@ class NumItem(QTableWidgetItem):
 
 
 class ProcessTab(QWidget):
-    COLS = ["Application", "Processus", "RAM"]
+    COLS = ["Application", _("Processus"), "RAM"]
 
     def __init__(self, ctl, main):
         super().__init__()
@@ -99,11 +101,11 @@ class ProcessTab(QWidget):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(6, 6, 6, 6)
         top = QHBoxLayout()
-        self.cb_apps = QCheckBox("Applications uniquement")
+        self.cb_apps = QCheckBox(_("Applications uniquement"))
         self.cb_apps.setChecked(True)
-        self.cb_apps.toggled.connect(lambda _: self._fill())
+        self.cb_apps.toggled.connect(lambda _x: self._fill())
         top.addWidget(self.cb_apps)
-        self.cb_auto = QCheckBox("Actualisation auto (3 s)")
+        self.cb_auto = QCheckBox(_("Actualisation auto (3 s)"))
         self.cb_auto.setChecked(True)
         self.cb_auto.toggled.connect(self._auto_toggled)
         top.addWidget(self.cb_auto)
@@ -117,6 +119,7 @@ class ProcessTab(QWidget):
         self.table.verticalHeader().setVisible(False)
         self.table.verticalHeader().setDefaultSectionSize(36)
         self.table.setIconSize(QSize(26, 26))
+        style.fit_rows(self.table, 10)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -124,23 +127,18 @@ class ProcessTab(QWidget):
         self.table.setShowGrid(False)
         self.table.setSortingEnabled(True)
         h = self.table.horizontalHeader()
-        h.setSectionResizeMode(0, QHeaderView.Stretch)
-        h.setSectionResizeMode(1, QHeaderView.Interactive)
-        h.resizeSection(1, 330)
-        h.resizeSection(1, 380)
-        h.setSectionResizeMode(2, QHeaderView.Fixed)
-        h.resizeSection(2, 110)
+        style.resizable_columns(h, "cols_procs", {0: 360, 1: 320, 2: 110})
         h.setHighlightSections(False)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._menu)
         lay.addWidget(self.table, 1)
 
         bot = QHBoxLayout()
-        b_ref = QPushButton("Rafraîchir")
+        b_ref = QPushButton(_("Rafraîchir"))
         b_ref.clicked.connect(self.refresh)
-        b_stop = QPushButton("Forcer l'arrêt")
+        b_stop = QPushButton(_("Forcer l'arrêt"))
         b_stop.clicked.connect(lambda: self.force_stop(self._selected()))
-        b_all = QPushButton("Libérer la mémoire (tout)")
+        b_all = QPushButton(_("Libérer la mémoire (tout)"))
         b_all.setToolTip("am kill-all : arrête tous les processus en arrière-plan sans risque")
         b_all.clicked.connect(self.kill_all)
         for b in (b_ref, b_stop, b_all):
@@ -182,6 +180,8 @@ class ProcessTab(QWidget):
             if isinstance(res, Exception):
                 return
             self.procs, self.top, self.mem_total = res
+            if adbcore._REAL_RAM_KB:  # RAM gonflée par la ROM : on se base sur la vraie capacité
+                self.mem_total = min(self.mem_total or adbcore._REAL_RAM_KB, adbcore._REAL_RAM_KB)
             self._fill()
         self.ctl.submit(list_processes, done=done)
 
@@ -209,15 +209,15 @@ class ProcessTab(QWidget):
                 it.setIcon(QIcon(QPixmap.fromImage(pkg.icon)) if pkg.icon is not None else placeholder)
             if fg:
                 it.setFont(bold)
-                it.setForeground(QBrush(QColor("#2fd06b")))
-                it.setToolTip("Application au premier plan")
+                it.setForeground(QBrush(QColor("#7fa4ff")))
+                it.setToolTip(_("Application au premier plan"))
             self.table.setItem(r, 0, it)
             ip = QTableWidgetItem(p.name)
             ip.setForeground(muted)
             self.table.setItem(r, 1, ip)
             pct = (p.rss * 100.0 / self.mem_total) if self.mem_total and p.rss else 0
             ir = NumItem(("%.1f %%" % pct).replace(".", ",") if p.rss else "", p.rss)
-            ir.setToolTip("%s · PID %d · %s" % (fmt_mem(p.rss), p.pid, p.user))
+            ir.setToolTip(_("%s · PID %d · %s") % (fmt_mem(p.rss), p.pid, p.user))
             self.table.setItem(r, 2, ir)
         self.table.setSortingEnabled(True)
         self.table.sortItems(sort_col, order)
@@ -226,9 +226,9 @@ class ProcessTab(QWidget):
                 if self.table.item(r, 0).data(Qt.UserRole) in sel:
                     self.table.selectRow(r)
         total = sum(p.rss for p in rows)
-        pct = (" (%.1f %% de %s)" % (total * 100.0 / self.mem_total, fmt_mem(self.mem_total))).replace(".", ",", 1) \
+        pct = (_(" (%.1f %% de %s)") % (total * 100.0 / self.mem_total, fmt_mem(self.mem_total))).replace(".", ",", 1) \
             if self.mem_total else ""
-        self.lbl.setText("%d processus · %s%s" % (len(rows), fmt_mem(total), pct))
+        self.lbl.setText(_("%d processus · %s%s") % (len(rows), fmt_mem(total), pct))
 
     # -- actions -----------------------------------------------------------
     def _selected(self) -> list[Proc]:
@@ -245,8 +245,8 @@ class ProcessTab(QWidget):
         if not sel:
             return
         m = QMenu(self)
-        for text, fn in [("Forcer l'arrêt", lambda: self.force_stop(sel)),
-                         ("Tuer le processus (kill -9)", lambda: self.kill_pid(sel))]:
+        for text, fn in [(_("Forcer l'arrêt"), lambda: self.force_stop(sel)),
+                         (_("Tuer le processus (kill -9)"), lambda: self.kill_pid(sel))]:
             a = QAction(text, m)
             a.triggered.connect(fn)
             m.addAction(a)
@@ -255,7 +255,7 @@ class ProcessTab(QWidget):
         if p0 is not None:
             m.addSeparator()
             from .dialogs import AppInfoDialog
-            m.addAction("Infos sur l'application…", lambda: AppInfoDialog(self.ctl, p0, self).exec())
+            m.addAction(_("Infos sur l'application…"), lambda: AppInfoDialog(self.ctl, p0, self).exec())
         m.exec(self.table.viewport().mapToGlobal(pos))
 
     def _run(self, label, cmds):
@@ -269,21 +269,21 @@ class ProcessTab(QWidget):
                 if r.text:
                     self.ctl.log.emit(html.escape(r.text), "out" if r.ok else "err")
         self.main.set_status(label)
-        self.ctl.submit(work, done=lambda _: QTimer.singleShot(600, self.refresh))
+        self.ctl.submit(work, done=lambda _x: QTimer.singleShot(600, self.refresh))
 
     def force_stop(self, procs):
         pkgs = sorted({p.pkg for p in procs})
         if not pkgs:
-            self.main.toast("Sélectionne un ou plusieurs processus.")
+            self.main.toast(_("Sélectionne un ou plusieurs processus."))
             return
         if any(x in pkgs for x in ("android", "com.android.systemui", "system_server")):
-            if QMessageBox.question(self, "Attention", "La sélection contient un composant système "
-                                    "critique. Forcer l'arrêt peut faire redémarrer l'interface. Continuer ?") != QMessageBox.Yes:
+            if QMessageBox.question(self, _("Attention"), _("La sélection contient un composant système "
+                                    "critique. Forcer l'arrêt peut faire redémarrer l'interface. Continuer ?")) != QMessageBox.Yes:
                 return
-        self._run("Arrêt forcé : %s" % ", ".join(pkgs), ["am force-stop " + q(x) for x in pkgs])
+        self._run(_("Arrêt forcé : %s") % ", ".join(pkgs), ["am force-stop " + q(x) for x in pkgs])
 
     def kill_pid(self, procs):
         self._run("kill -9", ["kill -9 %d" % p.pid for p in procs])
 
     def kill_all(self):
-        self._run("Libération de la mémoire", ["am kill-all"])
+        self._run(_("Libération de la mémoire"), ["am kill-all"])

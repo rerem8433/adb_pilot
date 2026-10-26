@@ -6,74 +6,105 @@ import shlex
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QProcess, QProcessEnvironment, QRectF, Qt, QUrl
+from PySide6.QtCore import QProcess, QProcessEnvironment, QRectF, QSize, Qt, QUrl
 from PySide6.QtGui import QColor, QDesktopServices, QImage, QPainter, QPainterPath, QPen
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QMenu,
-                               QPushButton, QSizePolicy, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel, QMenu,
+                               QPushButton, QToolButton, QVBoxLayout, QWidget)
 
 from .. import adbcore
 from ..adbcore import adb
 from ..config import config, user_dir
+from ..osutil import WINDOWS, no_window
+from . import style
 from .dialogs import PairDialog
+from ..i18n import _
 
 
-class PhoneFrame(QWidget):
-    """Maquette de téléphone affichant la dernière capture d'écran."""
+class RemoteControl(QWidget):
+    """Télécommande Android TV dessinée ; chaque touche envoie un keyevent à l'appareil."""
 
-    def __init__(self, on_click):
+    W, H = 210, 560
+
+    def __init__(self, tools):
         super().__init__()
-        self.img: QImage | None = None
-        self.on_click = on_click
-        self.setMinimumSize(190, 330)
-        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
-        self.setCursor(Qt.PointingHandCursor)
-        self.setToolTip("Cliquer pour rafraîchir l'aperçu")
-
-    def set_image(self, img):
-        self.img = img
-        self.update()
-
-    def mousePressEvent(self, e):
-        self.on_click()
+        self.tools = tools
+        self.setFixedSize(self.W, self.H)
+        cx = self.W // 2
+        self.dpad_c = (cx, 206)
+        # (icône, tooltip, x centre, y centre, taille, style, action)
+        keys = [
+            ("power", _("Alimentation (éteindre, redémarrer…)"), 46, 46, 42, "red", self.tools.power_menu),
+            ("camera", _("Capture d'écran"), self.W - 46, 46, 42, "grey", self.tools.screenshot),
+            ("menu", "Menu", 46, 108, 42, "grey", lambda: self.tools.keyevent(82)),
+            ("gear", _("Paramètres Android"), self.W - 46, 108, 42, "grey", self.tools.open_settings),
+            ("up", _("Haut"), cx, 206 - 50, 34, "dpad", lambda: self.tools.keyevent(19)),
+            ("down", _("Bas"), cx, 206 + 50, 34, "dpad", lambda: self.tools.keyevent(20)),
+            ("left", _("Gauche"), cx - 50, 206, 34, "dpad", lambda: self.tools.keyevent(21)),
+            ("right", _("Droite"), cx + 50, 206, 34, "dpad", lambda: self.tools.keyevent(22)),
+            (None, "OK", cx, 206, 50, "ok", lambda: self.tools.keyevent(23)),
+            ("back", _("Retour"), 46, 318, 42, "grey", lambda: self.tools.keyevent(4)),
+            ("home", _("Accueil"), cx, 334, 46, "white", lambda: self.tools.keyevent(3)),
+            ("recents", _("Applications récentes"), self.W - 46, 318, 42, "grey", lambda: self.tools.keyevent(187)),
+            ("mute", _("Muet"), cx, 430, 38, "grey", lambda: self.tools.keyevent(164)),
+            ("plus", _("Volume +"), 46, 398, 36, "rocker", lambda: self.tools.keyevent(24)),
+            ("minus", _("Volume −"), 46, 462, 36, "rocker", lambda: self.tools.keyevent(25)),
+            ("up", _("Chaîne +"), self.W - 46, 398, 36, "rocker", lambda: self.tools.keyevent(166)),
+            ("down", _("Chaîne −"), self.W - 46, 462, 36, "rocker", lambda: self.tools.keyevent(167)),
+        ]
+        styles = {
+            "red": ("#d83a3a", "#ef5a5a", "#ffffff"),
+            "grey": ("#454c5c", "#5a6274", "#ffffff"),
+            "white": ("#f2f3f5", "#ffffff", "#454c5c"),
+            "dpad": ("transparent", "rgba(255,255,255,0.10)", "#e8e8ea"),
+            "ok": ("#14171d", "#22262f", "#ffffff"),
+            "rocker": ("transparent", "rgba(255,255,255,0.10)", "#ffffff"),
+        }
+        for icon_name, tip, x, y, size, st, fn in keys:
+            bg, hover, fg = styles[st]
+            b = QToolButton(self)
+            b.setFixedSize(size, size)
+            b.move(int(x - size / 2), int(y - size / 2))
+            b.setToolTip(tip)
+            b.setCursor(Qt.PointingHandCursor)
+            b.setStyleSheet(
+                "QToolButton { background: %s; border: none; border-radius: %dpx; }"
+                "QToolButton:hover { background: %s; }"
+                "QToolButton:pressed { background: #24448f; }" % (bg, size // 2, hover))
+            if icon_name:
+                b.setIcon(style.icon(icon_name, fg, 64))
+                b.setIconSize(QSize(int(size * 0.5), int(size * 0.5)))
+            b.clicked.connect(fn)
 
     def paintEvent(self, e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        h = self.height() - 8
-        landscape = self.img is not None and self.img.width() > self.img.height()
-        ratio = 0.5 if not landscape else 1.7
-        w = min(self.width() - 8, h * ratio)
-        if landscape:
-            h = min(h, w / ratio)
-        x = (self.width() - w) / 2
-        y = (self.height() - h) / 2
-        body = QRectF(x, y, w, h)
+        body = QRectF(6, 4, self.W - 12, self.H - 8)
         path = QPainterPath()
-        path.addRoundedRect(body, 26, 26)
-        p.fillPath(path, QColor("#2a2a2c"))
-        p.setPen(QPen(QColor("#5a5a5e"), 2))
+        path.addRoundedRect(body, 44, 44)
+        p.fillPath(path, QColor("#2c3240"))
+        p.setPen(QPen(QColor("#4a5163"), 1.5))
         p.drawPath(path)
-        m = 10
-        top = 30 if not landscape else 12
-        scr = QRectF(x + m, y + top, w - 2 * m, h - top - (34 if not landscape else 12))
-        p.fillRect(scr, QColor("#000"))
-        if self.img is not None:
-            sc = self.img.scaled(int(scr.width()), int(scr.height()), Qt.KeepAspectRatio,
-                                 Qt.SmoothTransformation)
-            p.drawImage(int(scr.center().x() - sc.width() / 2), int(scr.center().y() - sc.height() / 2), sc)
-        else:
-            p.setPen(QColor("#888"))
-            p.drawText(scr, Qt.AlignCenter | Qt.TextWordWrap, "Cliquer ici\npour un aperçu\nde l'écran")
-        if not landscape:
-            pen = QPen(QColor("#777"), 3)
-            pen.setCapStyle(Qt.RoundCap)
-            p.setPen(pen)
-            p.drawLine(int(x + w / 2 - 18), int(y + 15), int(x + w / 2 + 18), int(y + 15))
-            p.setPen(QPen(QColor("#999"), 1.5))
-            cy = y + h - 17
-            p.drawText(QRectF(x + w * 0.2 - 10, cy - 9, 20, 18), Qt.AlignCenter, "◁")
-            p.drawEllipse(QRectF(x + w / 2 - 5, cy - 5, 10, 10))
-            p.drawRect(QRectF(x + w * 0.8 - 5, cy - 5, 10, 10))
+        # micro
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor("#11141a"))
+        p.drawEllipse(QRectF(self.W / 2 - 3, 44, 6, 6))
+        # pavé directionnel
+        cx, cy = self.dpad_c
+        p.setBrush(QColor("#1b1f27"))
+        p.drawEllipse(QRectF(cx - 80, cy - 80, 160, 160))
+        p.setBrush(QColor("#2c3240"))
+        p.drawEllipse(QRectF(cx - 30, cy - 30, 60, 60))
+        # bascules volume / chaîne
+        p.setBrush(QColor("#454c5c"))
+        for x in (46, self.W - 46):
+            p.drawRoundedRect(QRectF(x - 22, 372, 44, 116), 22, 22)
+        # nom
+        p.setPen(QColor("#8a91a3"))
+        f = p.font()
+        f.setPointSizeF(9)
+        f.setBold(True)
+        p.setFont(f)
+        p.drawText(QRectF(0, self.H - 50, self.W, 20), Qt.AlignCenter, "ADB Pilot")
         p.end()
 
 
@@ -82,8 +113,6 @@ class ToolsTab(QWidget):
         super().__init__()
         self.ctl = ctl
         self.main = main
-        self.rec_proc: QProcess | None = None
-        self.rec_remote = "/sdcard/adbpilot_rec.mp4"
         self._build()
         ctl.info_ready.connect(self._on_info)
         ctl.device_changed.connect(self._on_device)
@@ -103,7 +132,7 @@ class ToolsTab(QWidget):
         info.setFrameShape(QFrame.StyledPanel)
         info.setFixedWidth(220)
         il = QVBoxLayout(info)
-        self.lbl_info = QLabel("Aucun appareil")
+        self.lbl_info = QLabel(_("Aucun appareil"))
         self.lbl_info.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.lbl_info.setWordWrap(True)
         self.lbl_info.setAlignment(Qt.AlignTop | Qt.AlignLeft)
@@ -112,58 +141,44 @@ class ToolsTab(QWidget):
         lay.addWidget(info, 0, Qt.AlignTop)
         lay.addStretch(1)
 
-        lcol = QVBoxLayout()
-        lcol.addStretch(1)
-        lcol.addWidget(self._btn("Capture d'écran", self.screenshot))
-        self.b_rec = self._btn("Enregistrement\nvidéo", self.toggle_record)
-        lcol.addWidget(self.b_rec)
-        lcol.addSpacing(30)
-        self.b_reboot = self._btn("Redémarrer ▾", self.reboot_menu)
-        lcol.addWidget(self.b_reboot)
-        lcol.addStretch(1)
-        lay.addLayout(lcol)
-
-        self.phone = PhoneFrame(self.screenshot_preview)
-        self.phone.setFixedWidth(240)
-        lay.addWidget(self.phone)
+        self.remote = RemoteControl(self)
+        lay.addWidget(self.remote, 0, Qt.AlignVCenter)
+        lay.addSpacing(40)
 
         rcol = QVBoxLayout()
         rcol.addStretch(1)
-        keys = QGridLayout()
-        keys.setSpacing(4)
-        for i, (t, code) in enumerate([("Vol +", 24), ("Vol −", 25), ("Power", 26), ("Muet", 164),
-                                       ("Accueil", 3), ("Retour", 4), ("Récents", 187), ("Menu", 82)]):
-            b = QPushButton(t)
-            b.setObjectName("phoneKey")
-            b.clicked.connect(lambda _=False, c=code: self.keyevent(c))
-            keys.addWidget(b, i % 4, i // 4)
-        rcol.addLayout(keys)
-        rcol.addSpacing(24)
         self.lbl_scrcpy = QLabel()
         self.lbl_scrcpy.setAlignment(Qt.AlignCenter)
         rcol.addWidget(self.lbl_scrcpy)
-        self.b_scrcpy = self._btn("Contrôler l'écran\n(scrcpy)", self.launch_scrcpy, 180, 60)
+        self.b_scrcpy = self._btn(_("Contrôler l'écran\n(scrcpy)"), self.launch_scrcpy, 180, 60)
         rcol.addWidget(self.b_scrcpy, 0, Qt.AlignHCenter)
-        self.cb_record = QCheckBox("Enregistrer la vidéo")
-        self.cb_record.setToolTip("Enregistre la session scrcpy dans %s" % user_dir("videos"))
+        self.cb_record = QCheckBox(_("Enregistrer la vidéo"))
+        self.cb_record.setToolTip(_("Enregistre la session scrcpy dans %s") % user_dir("videos"))
         self.cb_record.setChecked(bool(config.get("scrcpy_record")))
         self.cb_record.toggled.connect(lambda v: (config.__setitem__("scrcpy_record", v), config.save()))
         rcol.addWidget(self.cb_record, 0, Qt.AlignHCenter)
         resrow = QHBoxLayout()
         resrow.addStretch(1)
-        resrow.addWidget(QLabel("Résolution :"))
+        resrow.addWidget(QLabel(_("Résolution :")))
         self.cmb_res = QComboBox()
         for v in (480, 720, 1080, 1920):
             self.cmb_res.addItem("%d px" % v, v)
         self.cmb_res.setCurrentIndex(max(0, self.cmb_res.findData(int(config.get("scrcpy_res", 1080)))))
-        self.cmb_res.setToolTip("Taille maximale de l'image scrcpy (plus grand côté)")
+        self.cmb_res.setToolTip(_("Taille maximale de l'image scrcpy (plus grand côté)"))
         self.cmb_res.currentIndexChanged.connect(
-            lambda _: (config.__setitem__("scrcpy_res", self.cmb_res.currentData()), config.save()))
+            lambda _x: (config.__setitem__("scrcpy_res", self.cmb_res.currentData()), config.save()))
         resrow.addWidget(self.cmb_res)
         resrow.addStretch(1)
         rcol.addLayout(resrow)
+        self.lbl_audio = QLabel()
+        self.lbl_audio.setAlignment(Qt.AlignCenter)
+        self.lbl_audio.setWordWrap(True)
+        self.lbl_audio.setFixedWidth(200)
+        self.lbl_audio.setStyleSheet("font-size: 8pt; color: #e6c22e;")
+        self.lbl_audio.hide()
+        rcol.addWidget(self.lbl_audio, 0, Qt.AlignHCenter)
         rcol.addSpacing(16)
-        rcol.addWidget(self._btn("Appairer (Android 11+)", lambda: PairDialog(self.ctl, self).exec(), 180, 36), 0, Qt.AlignHCenter)
+        rcol.addWidget(self._btn(_("Appairer (Android 11+)"), lambda: PairDialog(self.ctl, self).exec(), 180, 36), 0, Qt.AlignHCenter)
         rcol.addStretch(1)
         lay.addLayout(rcol)
         lay.addStretch(1)
@@ -172,41 +187,53 @@ class ToolsTab(QWidget):
     def refresh_scrcpy_label(self):
         exe = adbcore.find_scrcpy()
         if exe:
-            self.lbl_scrcpy.setText("<span style='color:#2fd06b'>scrcpy installé</span>")
+            self.lbl_scrcpy.setText(_("<span style='color:#2fd06b'>scrcpy installé</span>"))
 
             def ver():
                 import subprocess
                 try:
                     out = subprocess.run([exe, "--version"], capture_output=True, text=True,
-                                         timeout=10).stdout
+                                         timeout=10, **no_window()).stdout
                 except Exception:  # noqa: BLE001
                     return None
                 m = re.search(r"scrcpy\s+v?([\d.]+)", out)
                 return m.group(1) if m else None
             self.ctl.submit(ver, done=lambda v: isinstance(v, str) and self.lbl_scrcpy.setText(
-                "<span style='color:#2fd06b'>scrcpy v%s installé</span>" % v))
+                _("<span style='color:#2fd06b'>scrcpy v%s installé</span>") % v))
         else:
-            self.lbl_scrcpy.setText("<span style='color:#ff5c5c'>scrcpy introuvable</span><br>"
-                                    "<span style='font-size:8pt'>sudo apt install scrcpy<br>ou Paramètres → Télécharger</span>")
+            self.lbl_scrcpy.setText(_("<span style='color:#ff5c5c'>scrcpy introuvable</span><br>"
+                                    "<span style='font-size:8pt'>Paramètres → Télécharger</span>") if WINDOWS else
+                                    _("<span style='color:#ff5c5c'>scrcpy introuvable</span><br>"
+                                    "<span style='font-size:8pt'>sudo apt install scrcpy<br>ou Paramètres → Télécharger</span>"))
 
     def _need(self):
         if not self.ctl.ready:
-            self.main.toast("Aucun appareil connecté.")
+            self.main.toast(_("Aucun appareil connecté."))
             return False
         return True
 
     # -- infos -------------------------------------------------------------
     def _on_device(self, dev):
         if dev is None or dev.state != "device":
-            self.lbl_info.setText("Aucun appareil" if dev is None else "%s\n%s" % (dev.serial, dev.state))
-            self.phone.set_image(None)
+            self.lbl_audio.hide()
+            self.lbl_info.setText(_("Aucun appareil") if dev is None else "%s\n%s" % (dev.serial, dev.state))
 
     def _on_info(self, i):
         sp = i.get("specs") or {}
+        try:
+            sdk = int(sp.get("sdk") or i.get("sdk") or 0)
+        except (TypeError, ValueError):
+            sdk = 0
+        if 0 < sdk < 30:
+            self.lbl_audio.setText(_("Pas de son avec scrcpy : il faut Android 11 ou plus "
+                                   "(cet appareil est en Android %s)") % (sp.get("android") or i.get("release")))
+            self.lbl_audio.show()
+        else:
+            self.lbl_audio.hide()
         cpu = sp.get("soc") or i.get("board") or i.get("hardware")
         extra = []
         if sp.get("cores"):
-            extra.append("%d cœurs" % sp["cores"])
+            extra.append(_("%d cœurs") % sp["cores"])
         if sp.get("max_ghz"):
             extra.append(("%.2f GHz" % sp["max_ghz"]).replace(".", ","))
         if extra:
@@ -214,21 +241,32 @@ class ToolsTab(QWidget):
         if sp.get("android"):
             android = "%s (API %s)" % (sp["android"], sp.get("sdk"))
             if sp.get("fake"):
-                android += "\n⚠ build.prop annonce %s" % i.get("release")
+                android += _("\n⚠ build.prop annonce %s") % i.get("release")
         else:
             android = "%s (API %s)" % (i.get("release"), i.get("sdk"))
         mem = []
         if sp.get("ram_gb"):
-            mem.append("RAM %s Go" % sp["ram_gb"])
+            mem.append(_("RAM %s Go") % sp["ram_gb"])
+            if sp.get("ram_fake"):
+                mem[-1] += _("\n⚠ la ROM annonce %s Go") % sp["ram_fake"]
         if sp.get("storage_gb"):
-            mem.append("Stockage %s GB" % sp["storage_gb"])
-        rows = [("Modèle", i.get("model")), ("N° de série", i.get("serial")),
-                ("Processeur", cpu), ("Mémoire", " · ".join(mem)), ("ABI", i.get("abi")),
+            mem.append(_("Stockage %s GB") % sp["storage_gb"])
+        stor = None
+        if sp.get("storage_total"):
+            tot, used = sp["storage_total"], sp.get("storage_used")
+            if used is not None:
+                stor = _("%s Go utilisés sur %s Go\n%d %% occupé") % (
+                    ("%.1f" % used).replace(".", ","), ("%.1f" % tot).replace(".", ","), round(100 * used / tot))
+            else:
+                stor = _("%s Go") % ("%.1f" % tot).replace(".", ",")
+        rows = [(_("Modèle"), i.get("model")), (_("N° de série"), i.get("serial")),
+                (_("Processeur"), cpu), (_("Mémoire"), "\n".join(mem)),
+                (_("Stockage utilisateur"), stor), ("ABI", i.get("abi")),
                 ("Android", android), ("ROM", i.get("build"))]
-        txt = "<b style='font-size:12pt'>%s</b><br>" % html.escape(i.get("brand", "") or i.get("manufacturer", ""))
+        txt = _("<b style='font-size:12pt'>%s</b><br>") % html.escape(i.get("brand", "") or i.get("manufacturer", ""))
         for k, v in rows:
             if v:
-                txt += "<b>%s :</b><br>%s<br>" % (k, html.escape(v).replace("\n", "<br>"))
+                txt += _("<b>%s :</b><br>%s<br>") % (k, html.escape(v).replace("\n", "<br>"))
         self.lbl_info.setText(txt)
 
     # -- actions -----------------------------------------------------------
@@ -250,12 +288,6 @@ class ToolsTab(QWidget):
         img = QImage.fromData(data, "PNG")
         return data, img
 
-    def screenshot_preview(self):
-        if not self._need():
-            return
-        self.ctl.submit(self._grab, done=lambda r: (not isinstance(r, Exception) and not r[1].isNull()
-                                                     and self.phone.set_image(r[1])))
-
     def screenshot(self):
         if not self._need():
             return
@@ -266,70 +298,41 @@ class ToolsTab(QWidget):
                 return
             data, img = r
             if img.isNull():
-                self.ctl.log.emit("[Erreur] : capture impossible", "err")
+                self.ctl.log.emit(_("[Erreur] : capture impossible"), "err")
                 return
-            self.phone.set_image(img)
             name = "%s_%s.png" % (self._devname(dev), time.strftime("%Y_%m_%d_%H_%M_%S"))
             f = self._screens_dir() / name
             f.write_bytes(data)
-            self.ctl.log.emit("[Succès] : Capture enregistrée : <a href='file://%s'>%s</a>" % (
-                html.escape(str(f)), html.escape(str(f))), "ok")
-            self.main.set_status("Capture enregistrée : %s" % f)
+            self.ctl.log.emit(_("[Succès] : Capture enregistrée : <a href='%s'>%s</a>") % (
+                html.escape(QUrl.fromLocalFile(str(f)).toString()), html.escape(str(f))), "ok")
+            self.main.notify(_("Capture d'écran enregistrée"), str(f))
         self.ctl.submit(self._grab, done=done)
 
-    def toggle_record(self):
-        if self.rec_proc is None:
-            if not self._need():
-                return
-            self.rec_proc = QProcess(self)
-            self.rec_proc.setProgram(adbcore.find_adb())
-            self.rec_proc.setArguments(["-s", adb.serial, "shell", "screenrecord", self.rec_remote])
-            self.rec_proc.finished.connect(self._rec_finished)
-            self.rec_proc.start()
-            self.b_rec.setText("■ Arrêter\nl'enregistrement")
-            self.b_rec.setStyleSheet("color: #ff5c5c;")
-            self.ctl.log.emit(">> adb shell screenrecord %s (3 min max)" % self.rec_remote, "cmd")
-        else:
-            self.ctl.submit(lambda: adb.shell("pkill -INT screenrecord || killall -INT screenrecord"))
-
-    def _rec_finished(self):
-        self.rec_proc = None
-        self.b_rec.setText("Enregistrement\nvidéo")
-        self.b_rec.setStyleSheet("")
-        dev = self.ctl.current
-        name = "%s_%s.mp4" % (self._devname(dev), time.strftime("%Y_%m_%d_%H_%M_%S"))
-        f = user_dir("videos") / name
-
-        def work():
-            time.sleep(1)
-            r = adb.run(["pull", self.rec_remote, str(f)], timeout=300)
-            adb.shell("rm -f " + self.rec_remote)
-            return r
-        def done(r):
-            if getattr(r, "ok", False):
-                self.ctl.log.emit("[Succès] : Vidéo enregistrée : <a href='file://%s'>%s</a>" % (f, f), "ok")
-                self.main.notify("Vidéo enregistrée", str(f))
-            else:
-                self.ctl.log.emit("[Erreur] : récupération de la vidéo impossible", "err")
-        self.ctl.submit(work, done=done)
-
-    def reboot_menu(self):
+    def power_menu(self):
         if not self._need():
             return
         m = QMenu(self)
-        for label, args in [("Redémarrer", ["reboot"]), ("Recovery", ["reboot", "recovery"]),
-                            ("Bootloader", ["reboot", "bootloader"]),
-                            ("Fastboot (fastbootd)", ["reboot", "fastboot"]),
-                            ("Éteindre", ["shell", "reboot", "-p"])]:
+        for label, args in [(_("Éteindre"), ["shell", "reboot", "-p"]),
+                            (_("Redémarrer"), ["reboot"]),
+                            (_("Redémarrer en recovery"), ["reboot", "recovery"]),
+                            (_("Redémarrer en bootloader"), ["reboot", "bootloader"]),
+                            (_("Redémarrer en fastboot (fastbootd)"), ["reboot", "fastboot"])]:
             m.addAction(label, lambda a=args: self.ctl.submit(self.ctl.adb_logged, a))
-        m.exec(self.b_reboot.mapToGlobal(self.b_reboot.rect().bottomLeft()))
+        m.addSeparator()
+        m.addAction(_("Mettre en veille / réveiller"), lambda: self.keyevent(26))
+        btn = self.sender() if isinstance(self.sender(), QWidget) else self.remote
+        m.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
+
+    def open_settings(self):
+        if self._need():
+            self.ctl.submit(lambda: adb.shell("am start -a android.settings.SETTINGS"))
 
     def to_wifi(self):
         if not self._need():
             return
         dev = self.ctl.current
         if dev.is_network:
-            self.main.toast("L'appareil est déjà connecté en Wi-Fi.")
+            self.main.toast(_("L'appareil est déjà connecté en Wi-Fi."))
             return
 
         port = str(config.get("port", "auto"))
@@ -341,14 +344,15 @@ class ToolsTab(QWidget):
             time.sleep(2)
             return ip
         self.ctl.submit(work, done=lambda ip: (self.ctl.connect_ip(ip) if isinstance(ip, str)
-                                               else self.ctl.log.emit("[Erreur] : IP introuvable", "err")))
+                                               else self.ctl.log.emit(_("[Erreur] : IP introuvable"), "err")))
 
     def launch_scrcpy(self):
         if not self._need():
             return
         exe = adbcore.find_scrcpy()
         if not exe:
-            self.main.toast("scrcpy introuvable : sudo apt install scrcpy, ou Paramètres → Télécharger scrcpy.")
+            self.main.toast(_("scrcpy introuvable : Paramètres → Télécharger scrcpy.") if WINDOWS else
+                            _("scrcpy introuvable : sudo apt install scrcpy, ou Paramètres → Télécharger scrcpy."))
             return
         args = ["-s", adb.serial]
         c = config
@@ -390,11 +394,11 @@ class ToolsTab(QWidget):
         proc.readyRead.connect(lambda: self.ctl.log.emit(
             html.escape(bytes(proc.readAll()).decode("utf-8", "replace").rstrip()), "out"))
         def finished(code, _s):
-            self.ctl.log.emit("scrcpy terminé (code %d)" % code, "info")
+            self.ctl.log.emit(_("scrcpy terminé (code %d)") % code, "info")
             if rec_file is not None and rec_file.is_file() and rec_file.stat().st_size > 0:
-                self.ctl.log.emit("[Succès] : Vidéo enregistrée : <a href='file://%s'>%s</a>" % (
-                    rec_file, rec_file), "ok")
-                self.main.notify("Vidéo enregistrée", str(rec_file))
+                self.ctl.log.emit(_("[Succès] : Vidéo enregistrée : <a href='%s'>%s</a>") % (
+                    html.escape(QUrl.fromLocalFile(str(rec_file)).toString()), html.escape(str(rec_file))), "ok")
+                self.main.notify(_("Vidéo enregistrée"), str(rec_file))
         proc.finished.connect(finished)
         self.ctl.log.emit(">> scrcpy " + " ".join(shlex.quote(a) for a in args), "cmd")
         proc.start()

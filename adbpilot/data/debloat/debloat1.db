@@ -1,8 +1,6 @@
 com.android.bookmarkprovider
 com.android.calculator
 com.android.calculator2
-com.android.captiveportallogin
-com.android.companiondevicemanager
 com.android.dreams.basic
 com.android.dreams.phototable
 com.android.email
@@ -12,9 +10,9 @@ com.android.soundrecorder
 com.android.wallpaper
 com.android.wallpaper.holospiral
 com.android.wallpaper.livepicker
+com.asus.DLNA
 com.asus.as
 com.asus.browser
-com.asus.DLNA
 com.asus.easylauncher
 com.asus.livedemo
 com.caf.fmradio
@@ -27,8 +25,8 @@ com.google.android.apps.inputmethod.zhuyin
 com.google.android.apps.maps
 com.google.android.apps.youtube.mango
 com.google.android.play.games
-com.google.android.talk
 com.google.android.printservice.recommendation
+com.google.android.talk
 com.google.android.youtube
 com.mediatek.mtklogger
 com.skype.raider

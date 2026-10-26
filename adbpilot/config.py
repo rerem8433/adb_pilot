@@ -3,15 +3,14 @@ import os
 from pathlib import Path
 
 from . import APP_ID
+from .osutil import app_dirs
 
-CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / APP_ID
-CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / APP_ID
-DATA_DIR = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / APP_ID
+CONFIG_DIR, CACHE_DIR, DATA_DIR = app_dirs(APP_ID)
 PRESETS_DIR = CONFIG_DIR / "presets"
 
 # Dossier utilisateur centralisé (sans espace, pratique en ligne de commande)
 HOME_DIR = Path(os.environ.get("ADBPILOT_HOME", Path.home() / "ADB_Pilot"))
-SUBDIRS = ("images", "videos", "install", "apps", "debloat")
+SUBDIRS = ("images", "videos", "install", "apps")
 
 
 def user_dir(name: str = "") -> Path:
@@ -73,7 +72,7 @@ class Config(dict):
         super().__init__(DEFAULTS)
         self.path = CONFIG_DIR / "config.json"
         try:
-            self.update(json.loads(self.path.read_text()))
+            self.update(json.loads(self.path.read_text(encoding="utf-8")))
         except Exception:
             pass
         if self.get("layout_version", 0) < 2:
@@ -106,7 +105,7 @@ class Config(dict):
         try:
             CONFIG_DIR.mkdir(parents=True, exist_ok=True)
             tmp = self.path.with_suffix(".tmp")
-            tmp.write_text(json.dumps(self, indent=2, ensure_ascii=False))
+            tmp.write_text(json.dumps(self, indent=2, ensure_ascii=False), encoding="utf-8")
             tmp.replace(self.path)
         except Exception:
             pass

@@ -4,6 +4,12 @@ import sys
 
 def main():
     os.environ.setdefault("QT_AUTO_SCREEN_SCALE_FACTOR", "1")
+    if sys.platform == "win32":
+        try:  # icône et regroupement propres dans la barre des tâches
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ParadoxXxSquad.ADBPilot")
+        except Exception:  # noqa: BLE001
+            pass
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtWidgets import QApplication

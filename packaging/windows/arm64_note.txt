@@ -1,0 +1,15 @@
+﻿ADB Pilot - Windows ARM64 (Snapdragon X, etc.)
+
+FRANÇAIS
+Cette version ARM64 est compilée nativement pour les processeurs ARM (Snapdragon X Elite / Plus, etc.),
+mais elle n'a PAS encore été testée sur un vrai ordinateur ARM.
+adb, fastboot et scrcpy n'existent qu'en version x64 : Windows les fait tourner en émulation, c'est normal.
+En cas de problème, merci de le signaler : https://github.com/rerem8433/adb_pilot/issues
+Si cette version ne fonctionne pas, la version x64 s'installe aussi sur Windows 11 ARM (en émulation).
+
+ENGLISH
+This ARM64 build is compiled natively for ARM processors (Snapdragon X Elite / Plus, etc.),
+but it has NOT been tested on real ARM hardware yet.
+adb, fastboot and scrcpy only exist as x64 builds: Windows runs them under emulation, which is expected.
+Please report any issue: https://github.com/rerem8433/adb_pilot/issues
+If this build does not work, the x64 build also installs on Windows 11 ARM (under emulation).

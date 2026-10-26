@@ -6,6 +6,7 @@ l'appareil et qu'on le lit par morceaux via adb).
 """
 from __future__ import annotations
 
+import re
 import struct
 import zlib
 
@@ -57,12 +58,16 @@ class BytesReader(RangeReader):
         return [self.data[o:o + n] for o, n in ranges]
 
 
+FW_PREFIX = "@fw:"  # chemin d'un fichier situé dans framework-res.apk
+
+
 class RemoteZip:
     """Zip lu à la demande à travers un RangeReader."""
 
     def __init__(self, reader: RangeReader, tail: bytes | None = None):
         self.r = reader
         self.entries: dict[str, ZipEntry] = {}
+        self.fw_loader = None  # -> (RemoteZip, ARSC) de framework-res.apk, pour les ressources @android:
         self._load_cd(tail)
 
     def _load_cd(self, tail):
@@ -123,6 +128,9 @@ class RemoteZip:
         return out
 
     def read(self, name):
+        if name.startswith(FW_PREFIX):
+            fw = self.fw_loader() if self.fw_loader else None
+            return fw[0].read(name[len(FW_PREFIX):]) if fw else None
         return self.read_many([name]).get(name)
 
 
@@ -263,7 +271,15 @@ class ARSC:
         self.strings: list[str] = []
         # (pkg_id, type_id, entry_id) -> [ResValue]
         self.values: dict[tuple[int, int, int], list[ResValue]] = {}
+        self.fw_loader = None  # ressources du paquet 0x01 (android) lues dans framework-res.apk
         self._parse()
+
+    def _fw(self, res_id):
+        if (res_id >> 24) == 0x01 and self.fw_loader and not self.values.get(
+                (0x01, (res_id >> 16) & 0xFF, res_id & 0xFFFF)):
+            fw = self.fw_loader()
+            return fw[1] if fw else None
+        return None
 
     def _parse(self):
         b = self.buf
@@ -339,6 +355,9 @@ class ARSC:
         return self.values.get(((res_id >> 24) & 0xFF, (res_id >> 16) & 0xFF, res_id & 0xFFFF), [])
 
     def get_string(self, res_id, langs=("fr",), _depth=0):
+        fw = self._fw(res_id)
+        if fw is not None:
+            return fw.get_string(res_id, langs, _depth)
         vals = self._lookup(res_id)
         if not vals or _depth > 5:
             return None
@@ -362,6 +381,9 @@ class ARSC:
         out = []
         if _depth > 5:
             return out
+        fw = self._fw(res_id)
+        if fw is not None:
+            return [(d, FW_PREFIX + f) for d, f in fw.get_files(res_id, _depth)]
         for v in self._lookup(res_id):
             if v.dtype == TYPE_STRING and v.data < len(self.strings):
                 out.append((v.density, self.strings[v.data]))
@@ -370,6 +392,9 @@ class ARSC:
         return out
 
     def get_color(self, res_id, _depth=0):
+        fw = self._fw(res_id)
+        if fw is not None:
+            return fw.get_color(res_id, _depth)
         for v in self._lookup(res_id):
             if TYPE_INT_COLOR_FIRST <= v.dtype <= TYPE_INT_COLOR_LAST:
                 return v.data
@@ -392,7 +417,7 @@ def _density_rank(d):
 
 def best_bitmap(files, max_density=480):
     """Choisit le meilleur PNG/WebP (densité la plus proche de max_density par le haut)."""
-    bmps = [(d, f) for d, f in files if f.lower().endswith((".png", ".webp", ".jpg"))]
+    bmps = [(d, f) for d, f in files if not f.lower().endswith(".xml")]  # extension parfois absente
     if not bmps:
         return None
     bmps.sort(key=lambda x: _density_rank(x[0]))
@@ -410,11 +435,14 @@ class ApkMeta:
         self.label = None
         self.version_name = None
         self.icon_bytes: bytes | None = None
-        self.icon_layers: tuple | None = None  # (bg_bytes|None, bg_color|None, fg_bytes|None)
+        self.icon_layers: tuple | None = None  # (fond, premier plan) : ("img"|"svg"|"color", valeur)
+        self.icon_svg: bytes | None = None
 
 
-def read_apk_meta(z: RemoteZip, langs=("fr",)) -> ApkMeta:
+def read_apk_meta(z: RemoteZip, langs=("fr",), framework=None) -> ApkMeta:
+    """framework : fonction sans argument -> (RemoteZip, ARSC) de framework-res.apk, ou None."""
     meta = ApkMeta()
+    z.fw_loader = framework
     files = z.read_many(["AndroidManifest.xml", "resources.arsc"])
     man = files.get("AndroidManifest.xml")
     if not man:
@@ -424,6 +452,7 @@ def read_apk_meta(z: RemoteZip, langs=("fr",)) -> ApkMeta:
     if files.get("resources.arsc"):
         try:
             arsc = ARSC(files["resources.arsc"])
+            arsc.fw_loader = framework
         except (struct.error, IndexError, ValueError):
             arsc = None
     app = None
@@ -447,61 +476,224 @@ def read_apk_meta(z: RemoteZip, langs=("fr",)) -> ApkMeta:
         elif lab[2]:
             meta.label = lab[2]
     ic = app.attrs.get("icon") or app.attrs.get("roundIcon")
-    if ic and ic[0] == TYPE_REFERENCE and arsc:
-        cand = arsc.get_files(ic[1])
-        bmp = best_bitmap(cand)
-        if bmp:
-            meta.icon_bytes = z.read(bmp)
-        else:
-            xmls = [f for d, f in cand if f.endswith(".xml")]
-            if xmls:
-                meta.icon_layers = _adaptive_layers(z, arsc, xmls[0])
-    elif ic and ic[2] and ic[2].endswith((".png", ".webp")):
-        meta.icon_bytes = z.read(ic[2])
+    try:
+        if ic and ic[0] == TYPE_REFERENCE and arsc:
+            _resolve_icon(meta, z, arsc, ic[1])
+        elif ic and ic[2] and ic[2].endswith((".png", ".webp")):
+            meta.icon_bytes = z.read(ic[2])
+    except (struct.error, IndexError, ValueError, KeyError, zlib.error):
+        pass
     return meta
 
 
-def _adaptive_layers(z, arsc, xml_path):
-    data = z.read(xml_path)
-    if not data:
+# ---------------------------------------------------------------------------
+# Icônes : bitmap, vector drawable (converti en SVG), adaptive-icon
+# ---------------------------------------------------------------------------
+
+def _f32(v):
+    """Valeur numérique d'un attribut AXML (float, dimension ou entier)."""
+    t, d, sv = v
+    if t == 0x04:
+        return struct.unpack("<f", struct.pack("<I", d))[0]
+    if t == 0x05:  # dimension : mantisse 24 bits, radix 2 bits
+        mant = d >> 8
+        if mant & 0x800000:
+            mant -= 0x1000000
+        radix = (d >> 4) & 0x3
+        return mant * (1.0, 1 / 128, 1 / 32768, 1 / 8388608)[radix]
+    if t in (0x10, 0x11):
+        return float(d if d < 0x80000000 else d - 0x100000000)
+    if sv:
+        try:
+            return float(re.sub(r"[a-z]+$", "", sv))
+        except ValueError:
+            return 0.0
+    return 0.0
+
+
+def _color_of(v, arsc):
+    t, d, _sv = v
+    if TYPE_INT_COLOR_FIRST <= t <= TYPE_INT_COLOR_LAST:
+        return d
+    if t == TYPE_REFERENCE and arsc:
+        return arsc.get_color(d)
+    return None
+
+
+def _svg_color(argb, alpha=1.0):
+    a = ((argb >> 24) & 0xFF) / 255.0 * alpha
+    return "#%06x" % (argb & 0xFFFFFF), a
+
+
+def vector_to_svg(els, arsc):
+    """Convertit un VectorDrawable (liste AXML) en SVG."""
+    if not els or els[0].tag != "vector":
         return None
-    bg_ref = fg_ref = None
-    els = parse_axml(data)
-    mode = None
-    for e in els:
-        if e.tag in ("background", "foreground"):
-            mode = e.tag
-            d = e.attrs.get("drawable")
-            if d:
-                if mode == "background":
-                    bg_ref = d
-                else:
-                    fg_ref = d
-        elif mode and e.tag == "inset" and e.attrs.get("drawable"):
-            if mode == "foreground" and fg_ref is None:
-                fg_ref = e.attrs["drawable"]
-    bg_bytes = bg_color = fg_bytes = None
-    want = []
-    if bg_ref:
-        if TYPE_INT_COLOR_FIRST <= bg_ref[0] <= TYPE_INT_COLOR_LAST:
-            bg_color = bg_ref[1]
-        elif bg_ref[0] == TYPE_REFERENCE:
-            bg_color = arsc.get_color(bg_ref[1])
-            if bg_color is None:
-                b = best_bitmap(arsc.get_files(bg_ref[1]))
-                if b:
-                    want.append(("bg", b))
-    if fg_ref and fg_ref[0] == TYPE_REFERENCE:
-        f = best_bitmap(arsc.get_files(fg_ref[1]))
-        if f:
-            want.append(("fg", f))
-    if want:
-        got = z.read_many([w[1] for w in want])
-        for kind, path in want:
-            if kind == "bg":
-                bg_bytes = got.get(path)
-            else:
-                fg_bytes = got.get(path)
-    if fg_bytes is None and bg_bytes is None and bg_color is None:
+    root = els[0]
+    vw = _f32(root.attrs["viewportWidth"]) if "viewportWidth" in root.attrs else 24.0
+    vh = _f32(root.attrs["viewportHeight"]) if "viewportHeight" in root.attrs else 24.0
+    out = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %g %g">' % (vw, vh)]
+    defs = []
+    stack = [0]          # profondeurs des groupes ouverts
+    opened = [0]         # nombre de <g> à fermer par niveau
+    pending_fill = {}
+    clip_n = 0
+    last_path_idx = None
+    for e in els[1:]:
+        while len(stack) > 1 and e.depth <= stack[-1]:
+            out.append("</g>" * opened.pop())
+            stack.pop()
+        a = e.attrs
+        if e.tag == "group":
+            px = _f32(a["pivotX"]) if "pivotX" in a else 0.0
+            py = _f32(a["pivotY"]) if "pivotY" in a else 0.0
+            tx = _f32(a["translateX"]) if "translateX" in a else 0.0
+            ty = _f32(a["translateY"]) if "translateY" in a else 0.0
+            sx = _f32(a["scaleX"]) if "scaleX" in a else 1.0
+            sy = _f32(a["scaleY"]) if "scaleY" in a else 1.0
+            rot = _f32(a["rotation"]) if "rotation" in a else 0.0
+            out.append('<g transform="translate(%g %g) rotate(%g) scale(%g %g) translate(%g %g)">'
+                       % (tx + px, ty + py, rot, sx, sy, -px, -py))
+            stack.append(e.depth)
+            opened.append(1)
+        elif e.tag == "clip-path" and "pathData" in a:
+            clip_n += 1
+            defs.append('<clipPath id="c%d"><path d="%s"/></clipPath>' % (clip_n, a["pathData"][2]))
+            out.append('<g clip-path="url(#c%d)">' % clip_n)
+            opened[-1] += 1
+        elif e.tag == "path" and "pathData" in a and a["pathData"][2]:
+            fill = "none"
+            fa = _f32(a["fillAlpha"]) if "fillAlpha" in a else 1.0
+            attrs = []
+            if "fillColor" in a:
+                c = _color_of(a["fillColor"], arsc)
+                if c is not None:
+                    fill, op = _svg_color(c, fa)
+                    attrs.append('fill-opacity="%.3f"' % op)
+            if "strokeColor" in a:
+                c = _color_of(a["strokeColor"], arsc)
+                if c is not None:
+                    sc, op = _svg_color(c, _f32(a["strokeAlpha"]) if "strokeAlpha" in a else 1.0)
+                    attrs.append('stroke="%s" stroke-opacity="%.3f" stroke-width="%g"' % (
+                        sc, op, _f32(a["strokeWidth"]) if "strokeWidth" in a else 1.0))
+            if "fillType" in a and a["fillType"][1] == 1:
+                attrs.append('fill-rule="evenodd"')
+            out.append('<path d="%s" fill="%s" %s/>' % (a["pathData"][2], fill, " ".join(attrs)))
+            last_path_idx = len(out) - 1
+        elif e.tag == "gradient" and last_path_idx is not None:
+            c = None
+            for k in ("startColor", "centerColor", "endColor"):
+                if k in a:
+                    c = _color_of(a[k], arsc)
+                    if c is not None:
+                        break
+            if c is not None:
+                pending_fill[last_path_idx] = c
+        elif e.tag == "item" and last_path_idx is not None and last_path_idx not in pending_fill \
+                and "color" in a:
+            c = _color_of(a["color"], arsc)
+            if c is not None:
+                pending_fill[last_path_idx] = c
+    for idx, c in pending_fill.items():
+        col, op = _svg_color(c)
+        out[idx] = out[idx].replace('fill="none"', 'fill="%s" fill-opacity="%.3f"' % (col, op), 1)
+    while len(opened) > 1:
+        out.append("</g>" * opened.pop())
+    out.append("</svg>")
+    if defs:
+        out.insert(1, "<defs>%s</defs>" % "".join(defs))
+    return "".join(out).encode()
+
+
+def _drawable(z, arsc, ref, depth=0):
+    """Résout une ressource drawable : ('img', bytes) | ('svg', bytes) | ('color', argb) | None."""
+    if depth > 4 or ref is None:
         return None
-    return (bg_bytes, bg_color, fg_bytes)
+    t, d, sv = ref
+    if TYPE_INT_COLOR_FIRST <= t <= TYPE_INT_COLOR_LAST:
+        return ("color", d)
+    if t != TYPE_REFERENCE:
+        return None
+    col = arsc.get_color(d)
+    if col is not None:
+        return ("color", col)
+    files = arsc.get_files(d)
+    bmp = best_bitmap(files)
+    if bmp:
+        data = z.read(bmp)
+        return ("img", data) if data else None
+    xmls = [f for _dn, f in sorted(files, key=lambda x: -_density_rank(x[0])) if f.endswith(".xml")]
+    for xp in xmls:
+        data = z.read(xp)
+        if not data:
+            continue
+        els = parse_axml(data)
+        if not els:
+            continue
+        tag = els[0].tag
+        if tag == "vector":
+            svg = vector_to_svg(els, arsc)
+            if svg:
+                return ("svg", svg)
+        if tag in ("inset", "bitmap", "nine-patch", "layer-list", "selector", "ripple", "scale"):
+            for e in els:
+                for k in ("drawable", "src"):
+                    if k in e.attrs and e.attrs[k][0] == TYPE_REFERENCE:
+                        r = _drawable(z, arsc, e.attrs[k], depth + 1)
+                        if r:
+                            return r
+        if tag == "shape":
+            for e in els:
+                if e.tag == "solid" and "color" in e.attrs:
+                    c = _color_of(e.attrs["color"], arsc)
+                    if c is not None:
+                        return ("color", c)
+    return None
+
+
+def _resolve_icon(meta, z, arsc, res_id):
+    files = arsc.get_files(res_id)
+    bmp = best_bitmap(files)
+    if bmp:
+        meta.icon_bytes = z.read(bmp)
+        return
+    for _dn, xp in files:
+        if not xp.endswith(".xml"):
+            continue
+        els = parse_axml(z.read(xp) or b"")
+        if not els:
+            continue
+        if els[0].tag == "adaptive-icon":
+            layers = {"background": None, "foreground": None}
+            cur = None  # calque en cours : les enfants (<inset>, <color>…) s'y rattachent
+            for e in els:
+                if e.tag in layers:
+                    cur = e.tag
+                    if "drawable" in e.attrs:
+                        layers[cur] = _drawable(z, arsc, e.attrs["drawable"])
+                elif cur and layers[cur] is None:
+                    for k in ("drawable", "src"):
+                        if k in e.attrs:
+                            layers[cur] = _drawable(z, arsc, e.attrs[k])
+                            break
+                    else:
+                        if e.tag == "color" and "color" in e.attrs:
+                            c = _color_of(e.attrs["color"], arsc)
+                            layers[cur] = ("color", c) if c is not None else None
+            bg, fg = layers["background"], layers["foreground"]
+            if fg or bg:
+                meta.icon_layers = (bg, fg)
+                return
+        elif els[0].tag == "vector":
+            svg = vector_to_svg(els, arsc)
+            if svg:
+                meta.icon_svg = svg
+                return
+        else:
+            r = _drawable(z, arsc, (TYPE_REFERENCE, res_id, None))
+            if r and r[0] == "img":
+                meta.icon_bytes = r[1]
+                return
+            if r and r[0] == "svg":
+                meta.icon_svg = r[1]
+                return
