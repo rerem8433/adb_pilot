@@ -524,4 +524,8 @@ EN = {
     "Mises à jour": "Updates",
     "Vérifier les mises à jour au démarrage (GitHub)": "Check for updates at startup (GitHub)",
     "Vérifier maintenant (version %s)": "Check now (version %s)",
+    "%d processus · RAM utilisée : %s / %s (%d %%)": "%d processes · RAM used: %s / %s (%d %%)",
+    "%d processus": "%d processes",
+    "La colonne RAM indique la mémoire résidente (RSS) de chaque processus. Une partie est partagée entre processus : additionner la colonne dépasse donc la RAM réellement utilisée.":
+        "The RAM column shows each process's resident memory (RSS). Part of it is shared between processes, so adding up the column exceeds the RAM actually used.",
 }

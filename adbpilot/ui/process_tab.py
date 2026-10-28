@@ -16,7 +16,7 @@ from . import style
 from ..i18n import _
 
 # toybox d'abord : sur une box rootée avec BusyBox (Magisk), « ps » est celui de BusyBox, sans -A / RSS
-PS_SCRIPT = ("head -1 /proc/meminfo; echo @@PS; toybox ps -A -o PID,USER,RSS,NAME 2>/dev/null || "
+PS_SCRIPT = ("head -3 /proc/meminfo; echo @@PS; toybox ps -A -o PID,USER,RSS,NAME 2>/dev/null || "
              "ps -A -o PID,USER,RSS,NAME 2>/dev/null; echo @@TOP; "
              "dumpsys activity activities 2>/dev/null | grep -m 4 -E 'ResumedActivity'")
 
@@ -58,12 +58,14 @@ def list_processes():
     mem_part, _, ps_part = ps_part.partition("@@PS")
     mm = re.search(r"MemTotal:\s+(\d+)", mem_part)
     total = int(mm.group(1)) if mm else 0
+    ma = re.search(r"MemAvailable:\s+(\d+)", mem_part) or re.search(r"MemFree:\s+(\d+)", mem_part)
+    used = total - int(ma.group(1)) if (ma and total) else 0
     procs = _parse_ps(ps_part)
     if len(procs) < 5:  # ancien toolbox ps (Android < 8) : pas de -A / -o
         procs = _parse_ps(adb.shell("toybox ps 2>/dev/null || ps", timeout=30).out)
     m = re.search(r"\s([\w.]+)/[\w.$]+", top_part)
     top = m.group(1) if m else None
-    return procs, top, total
+    return procs, top, (total, used)
 
 
 def fmt_mem(kb):
@@ -92,6 +94,7 @@ class ProcessTab(QWidget):
         self._busy = False
         self.procs: list[Proc] = []
         self.mem_total = 0
+        self.mem_used = 0
         self.top = None
         self._build()
         self.timer = QTimer(self)
@@ -181,9 +184,10 @@ class ProcessTab(QWidget):
             self._busy = False
             if isinstance(res, Exception):
                 return
-            self.procs, self.top, self.mem_total = res
+            self.procs, self.top, (self.mem_total, self.mem_used) = res
             if adbcore._REAL_RAM_KB:  # RAM gonflée par la ROM : on se base sur la vraie capacité
                 self.mem_total = min(self.mem_total or adbcore._REAL_RAM_KB, adbcore._REAL_RAM_KB)
+                self.mem_used = min(self.mem_used, self.mem_total)
             self._fill()
         self.ctl.submit(list_processes, done=done)
 
@@ -227,10 +231,17 @@ class ProcessTab(QWidget):
             for r in range(self.table.rowCount()):
                 if self.table.item(r, 0).data(Qt.UserRole) in sel:
                     self.table.selectRow(r)
-        total = sum(p.rss for p in rows)
-        pct = (_(" (%.1f %% de %s)") % (total * 100.0 / self.mem_total, fmt_mem(self.mem_total))).replace(".", ",", 1) \
-            if self.mem_total else ""
-        self.lbl.setText(_("%d processus · %s%s") % (len(rows), fmt_mem(total), pct))
+        # La somme des RSS compte plusieurs fois la mémoire partagée (bibliothèques, zygote) :
+        # on affiche plutôt la RAM réellement utilisée par le système, comme l'onglet Applications.
+        if self.mem_total:
+            self.lbl.setText(_("%d processus · RAM utilisée : %s / %s (%d %%)") % (
+                len(rows), fmt_mem(self.mem_used), fmt_mem(self.mem_total),
+                round(self.mem_used * 100.0 / self.mem_total)))
+        else:
+            self.lbl.setText(_("%d processus") % len(rows))
+        self.lbl.setToolTip(_("La colonne RAM indique la mémoire résidente (RSS) de chaque processus. "
+                              "Une partie est partagée entre processus : additionner la colonne "
+                              "dépasse donc la RAM réellement utilisée."))
 
     # -- actions -----------------------------------------------------------
     def _selected(self) -> list[Proc]:
