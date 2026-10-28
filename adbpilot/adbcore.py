@@ -339,7 +339,10 @@ def device_specs(info: dict) -> dict:
         gb = mem_kb / 1048576
         sp["ram_exact"] = "%s Go (MemTotal)" % _fmt_num(round(gb, 2))
         steps = [0.5, 1, 1.5, 2, 3, 4, 6, 8, 10, 12, 16, 18, 24, 32]
-        if real_kb and real_kb < mem_kb * 0.9:
+        # RAM truquée seulement si l'écart est net : les zones réservées (vidéo, sécurité…) font
+        # toujours paraître la mémoire physique un peu plus petite que MemTotal sur une box honnête.
+        if (real_kb and real_kb < mem_kb * 0.75
+                and _round_up(real_kb / 1048576, steps) < _round_up(gb, steps)):
             _REAL_RAM_KB = real_kb
             rgb = real_kb / 1048576
             sp["ram_fake"] = _fmt_num(_round_up(gb, steps))

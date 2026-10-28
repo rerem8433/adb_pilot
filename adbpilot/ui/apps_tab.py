@@ -764,10 +764,10 @@ class AppsTab(QWidget):
             level = dlg.level
             names = [p.name for p in self.model.pkgs
                      if not p.deleted and not p.disabled and debloat.matches_level(p.name, level, is_tv)]
-            self.model.checked.clear()
-            self.model.set_checked(names, True)
             self.filters.button(0).setChecked(True)
-            self._set_mode("all")
+            self._set_mode("all")  # (décoche tout) avant de cocher la sélection du debloat
+            self.model.set_checked(names, True)
+            self._update_counts()
             self.view.sortByColumn(COL_CHECK, Qt.AscendingOrder)
             self.cmb_action.setCurrentText(_("Désactiver"))
             self.main.toast(_("%d application(s) cochée(s) (niveau %s). Vérifie la liste puis clique "
