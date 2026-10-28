@@ -553,6 +553,7 @@ class InstallerPage(QWidget):
                 self.ctl.in_main(lambda _v: fn(ov), None)
 
         incompatible = []  # (fichier, paquet) : signature différente d'une version (encore) présente
+        installed = []     # fichiers installés avec succès (décochés à la fin)
 
         def work():
             ok = 0
@@ -569,6 +570,7 @@ class InstallerPage(QWidget):
                     r = adbcore.install_bundle(str(f.path), log=lambda s: self.ctl.log.emit(s, "info"))
                 if r.ok and "Failure" not in r.out:
                     ok += 1
+                    installed.append(str(f.path))
                     self.ctl.log.emit(_("[Succès] : %s installé") % html.escape(f.path.name), "ok")
                     upd(lambda o, f=f, name=name, k=i: (o.item(str(f.path), name, f.icon, "ok"), o.set_done(k)))
                 else:
@@ -585,6 +587,10 @@ class InstallerPage(QWidget):
             self.b_quick.setEnabled(True)
             if ov is not None:
                 ov.finish(_("Installation terminée"))
+            # Les fichiers installés se décochent ; ceux en échec restent cochés pour pouvoir réessayer
+            self.checked -= set(installed)
+            self.table.clearSelection()
+            self._fill()
             if isinstance(ok, Exception):
                 return
             self.main.toast(_("Installation : %d/%d réussie(s)%s") % (
