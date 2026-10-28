@@ -12,6 +12,8 @@ from .. import adbcore, metacache, osutil, tools_dl
 from ..config import config, user_dir
 from ..i18n import LANGS
 from ..i18n import _
+from .. import VERSION
+from .update_dialog import check_updates
 
 
 class SettingsTab(QWidget):
@@ -150,6 +152,13 @@ class SettingsTab(QWidget):
         r2.addWidget(idir, 1)
         r2.addWidget(bid)
         f.addRow(_("APK à installer :"), r2)
+        col2.addWidget(g)
+        g = QGroupBox(_("Mises à jour"))
+        f = QFormLayout(g)
+        self._check(f, _("Vérifier les mises à jour au démarrage (GitHub)"), "update_check")
+        bu = QPushButton(_("Vérifier maintenant (version %s)") % VERSION)
+        bu.clicked.connect(lambda: check_updates(self.main, manual=True))
+        f.addRow(bu)
         col2.addWidget(g)
         col2.addStretch(1)
         self.refresh_tools()

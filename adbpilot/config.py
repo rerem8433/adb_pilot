@@ -37,6 +37,8 @@ DEFAULTS = {
     "install_downgrade": False,
     "uninstall_keep_data": True,
     "auto_reconnect": True,
+    "update_check": True,
+    "update_skip": "",
     "auto_shell": False,
     "ip_history": [],
     "last_ip": "",

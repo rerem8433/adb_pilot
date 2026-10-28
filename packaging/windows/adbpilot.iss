@@ -76,6 +76,8 @@ Root: HKA; Subkey: "Software\Classes\Applications\ADB Pilot.exe\SupportedTypes";
 
 [Run]
 Filename: "{app}\ADB Pilot.exe"; Description: "{cm:LaunchProgram,ADB Pilot}"; Flags: nowait postinstall skipifsilent
+; Mise à jour lancée depuis ADB Pilot (mode silencieux) : on relance l'appli à la fin
+Filename: "{app}\ADB Pilot.exe"; Flags: nowait; Check: WizardSilent
 
 [UninstallRun]
 Filename: "{app}\tools\platform-tools\adb.exe"; Parameters: "kill-server"; Flags: runhidden skipifdoesntexist; RunOnceId: "KillAdb"

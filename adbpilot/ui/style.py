@@ -117,6 +117,7 @@ def qss(name: str) -> str:
     QPushButton#chip:checked {{ background: #24448f; color: #ffffff; border-color: #4a74d6; font-weight: 700; }}
     QPushButton#accent {{ background: #24448f; color: #ffffff; border: 1px solid #4a74d6; font-weight: 600; }}
     QPushButton#accent:hover {{ background: #2d55b0; }}
+    QPushButton#accent:disabled {{ background: #3b4660; color: #9aa3b8; border-color: #3b4660; }}
     QPushButton#accentSoft {{ background: #9db8f0; color: #0e1d40; border: 1px solid #6f92dc; }}
     QPushButton#accentSoft:hover {{ background: #b5caf5; }}
     QPushButton#debloat {{ background: {'#2c2c2f' if c is THEMES['dark'] else '#9db8f0'}; border: 1px solid {c['border']};

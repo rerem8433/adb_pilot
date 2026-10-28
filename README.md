@@ -45,6 +45,7 @@ ADB Pilot est donc une **réécriture complète pour Linux**, qui reprend l'ergo
 - **scrcpy** intégré : choix de la résolution et enregistrement vidéo de la session (le son nécessite Android 11+).
 - Connexion Wi-Fi (IP + port, historique avec le nom des boîtiers), passage USB → Wi-Fi, appairage Android 11+. Un seul appareil connecté à la fois.
 - **Détection réseau** : bouton *Détecter* qui liste les appareils Android du réseau local avec leur nom (lu via ADB, mDNS Cast / Android TV / débogage sans fil, l'historique ou le réseau) et connexion en un clic.
+- **Mises à jour** : ADB Pilot signale les nouvelles versions publiées sur GitHub et les installe en un clic (`.deb` sous Linux avec le mot de passe administrateur, installateur sous Windows).
 
 **Store** : installation en un clic d'applications utiles (SmartTube, VLC, Projectivy Launcher…), rangées par rubriques. L'APK est téléchargé sur le PC puis installé sur le boîtier ; la liste est mise à jour automatiquement depuis ce dépôt.
 
@@ -282,6 +283,7 @@ ADB Pilot is a **complete rewrite for Linux** that follows the workflow of ADB A
 - Built-in **scrcpy** launcher with resolution choice and session recording (audio requires Android 11+).
 - Wi-Fi connection (IP + port, history with box names), USB → Wi-Fi switch, Android 11+ pairing. One device connected at a time.
 - **Network detection**: a *Detect* button lists the Android devices on the local network with their name (read via ADB, mDNS Cast / Android TV / wireless debugging, history or the network) and connects in one click.
+- **Updates**: ADB Pilot notifies you of new versions published on GitHub and installs them in one click (`.deb` on Linux with the administrator password, installer on Windows).
 
 **Store**: one-click install of useful apps (SmartTube, VLC, Projectivy Launcher…), sorted by category. The APK is downloaded to the PC, then installed on the box; the list is updated automatically from this repository.
 

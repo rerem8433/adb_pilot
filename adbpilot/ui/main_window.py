@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import os
 from pathlib import Path
 
 from PySide6.QtCore import QByteArray, QSize, Qt, QTimer, QUrl
@@ -13,6 +14,7 @@ from .. import APP_NAME, AUTHOR, HOMEPAGE, VERSION, adbcore
 from ..adbcore import adb
 from .. import osutil
 from .progress_overlay import ProgressOverlay
+from .update_dialog import check_updates
 from ..config import CONFIG_DIR, DATA_DIR, config, user_dir
 from . import style
 from .apps_tab import AppsTab
@@ -92,6 +94,8 @@ class MainWindow(QMainWindow):
         self.ram_timer.timeout.connect(self.ctl.refresh_ram)
         self.ram_timer.start(10000)
         QTimer.singleShot(50, self.ctl.start)
+        if config.get("update_check", True) and not os.environ.get("ADBPILOT_NO_UPDATE"):
+            QTimer.singleShot(6000, lambda: check_updates(self))
 
     # -- construction ------------------------------------------------------
     def _hdr_btn(self, name, tip, fn):
