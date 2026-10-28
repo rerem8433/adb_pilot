@@ -306,13 +306,9 @@ class Controller(QObject):
 
     def shutdown(self):
         """Fermeture : on déconnecte et on arrête le serveur adb (un seul appareil par session)."""
-        try:
-            if adbcore.find_adb():
-                adb.run(["disconnect"], serial=False, timeout=5)
-                adb.run(["kill-server"], serial=False, timeout=5)
-        except Exception:  # noqa: BLE001
-            pass
+        # D'abord tout arrêter (minuteries, tâches en attente), ensuite seulement le serveur adb
         self._meta_gen += 1
         self.timer.stop()
         self.pool.shutdown(wait=False, cancel_futures=True)
         self.meta_pool.shutdown(wait=False, cancel_futures=True)
+        adbcore.stop_server()

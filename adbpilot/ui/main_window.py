@@ -562,6 +562,8 @@ class MainWindow(QMainWindow):
     def closeEvent(self, e):
         config["window_geometry"] = bytes(self.saveGeometry().toBase64()).decode()
         config.save()
+        self.ram_timer.stop()
+        self.procs.timer.stop()
         self.console.shutdown()
         self.ctl.shutdown()
         super().closeEvent(e)

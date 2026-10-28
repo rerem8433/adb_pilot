@@ -106,6 +106,8 @@ class Adb:
         return base
 
     def run(self, args, timeout=60, serial=True, input_bytes=None) -> Result:
+        if _CLOSING:  # fermeture en cours : aucune commande (elle relancerait le serveur adb)
+            return Result(1, "", "fermeture")
         try:
             cp = subprocess.run(self._base(serial) + list(args), capture_output=True,
                                 timeout=timeout, input=input_bytes, **no_window())
@@ -117,6 +119,8 @@ class Adb:
                       cp.stderr.decode("utf-8", "replace"))
 
     def run_bytes(self, args, timeout=120, serial=True) -> bytes:
+        if _CLOSING:
+            return b""
         cp = subprocess.run(self._base(serial) + list(args), capture_output=True, timeout=timeout, **no_window())
         return cp.stdout
 
@@ -128,6 +132,24 @@ class Adb:
 
 
 adb = Adb()
+_CLOSING = False
+
+
+def stop_server():
+    """Fermeture d'ADB Pilot : bloque toute nouvelle commande adb puis arrête le serveur adb.
+
+    Sans le blocage, une tâche encore en cours (liste, icônes, RAM…) relancerait aussitôt le
+    serveur (« adb -L tcp:5037 fork-server server ») après le kill-server."""
+    global _CLOSING
+    _CLOSING = True
+    exe = find_adb()
+    if not exe:
+        return
+    for args in (["disconnect"], ["kill-server"]):
+        try:
+            subprocess.run([exe] + args, capture_output=True, timeout=5, **no_window())
+        except (OSError, subprocess.TimeoutExpired):
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -696,6 +718,8 @@ class AdbRangeReader(RangeReader):
             cmds.append("dd if=%s bs=%d skip=%d count=%d 2>/dev/null" % (q(self.path), BLOCK, s, e - s))
             plan.append((expected, off - s * BLOCK, end - off))
         if not cmds:
+            return [b"" for _ in ranges]
+        if _CLOSING:
             return [b"" for _ in ranges]
         args = ["exec-out", "; ".join(cmds)]
         base = [find_adb() or "adb"]
