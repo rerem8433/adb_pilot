@@ -328,7 +328,7 @@ def _real_sdk():
 def device_specs(info: dict) -> dict:
     script = ("head -1 /proc/meminfo; echo @@TV; getprop ro.build.characteristics; "
               "pm list features 2>/dev/null | grep -ciE 'leanback|android.hardware.type.television'; "
-              "echo @@DF; df -k /data 2>/dev/null || df /data; "
+              "echo @@DF; toybox df -k /data 2>/dev/null || df -k /data 2>/dev/null || df /data; "
               "echo @@STATF; stat -f -c '%S %b %f %a' /data 2>/dev/null; "
               "echo @@WM; wm size 2>/dev/null; wm density 2>/dev/null; "
               "echo @@CPU; grep -iE '^(Hardware|model name|Processor)' /proc/cpuinfo | head -3; "

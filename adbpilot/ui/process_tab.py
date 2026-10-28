@@ -15,7 +15,9 @@ from ..adbcore import adb, q
 from . import style
 from ..i18n import _
 
-PS_SCRIPT = ("head -1 /proc/meminfo; echo @@PS; ps -A -o PID,USER,RSS,NAME 2>/dev/null; echo @@TOP; "
+# toybox d'abord : sur une box rootée avec BusyBox (Magisk), « ps » est celui de BusyBox, sans -A / RSS
+PS_SCRIPT = ("head -1 /proc/meminfo; echo @@PS; toybox ps -A -o PID,USER,RSS,NAME 2>/dev/null || "
+             "ps -A -o PID,USER,RSS,NAME 2>/dev/null; echo @@TOP; "
              "dumpsys activity activities 2>/dev/null | grep -m 4 -E 'ResumedActivity'")
 
 
@@ -58,7 +60,7 @@ def list_processes():
     total = int(mm.group(1)) if mm else 0
     procs = _parse_ps(ps_part)
     if len(procs) < 5:  # ancien toolbox ps (Android < 8) : pas de -A / -o
-        procs = _parse_ps(adb.shell("ps", timeout=30).out)
+        procs = _parse_ps(adb.shell("toybox ps 2>/dev/null || ps", timeout=30).out)
     m = re.search(r"\s([\w.]+)/[\w.$]+", top_part)
     top = m.group(1) if m else None
     return procs, top, total
