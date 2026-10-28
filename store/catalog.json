@@ -19,6 +19,18 @@
   ],
   "apps": [
     {
+      "id": "filemanager",
+      "icon": "https://play-lh.googleusercontent.com/ks-rS8x71PjjK3fRF6bqtkarpsczS6hiErvgmK2Y0uivOjYxZjPMoyZhagZiiM8Y5mu2pjyX_UwHP9OmmXRWGGQ=s128-h480",
+      "name": "FileManager Plus",
+      "category": "tools",
+      "package": "com.alphainventor.filemanager",
+      "desc": "Gestionnaire de fichiers simple et efficace",
+      "desc_en": "File Manager simply and powerfully",
+      "source": {
+        "url": "https://www.tvbox.one/tv-content/FileManager-Plus-3.8.4.apk"
+      }
+    },
+    {
       "id": "smarttube",
       "name": "SmartTube",
       "category": "media",
@@ -50,7 +62,7 @@
       "desc": "Lecteur vidéo et audio universel.",
       "desc_en": "Universal video and audio player.",
       "source": {
-        "url": "https://get.videolan.org/vlc-android/last/VLC-Android-3.7.1-armeabi-v7a.apk"
+        "url": "https://www.dropbox.com/scl/fi/lkzqlnfd9uul24hf97s7j/VLC-MediaPayer-3.7.1-armv7.apk?rlkey=83391frasyn3rnk50gg5d4q6x&dl=1"
       }
     },
     {
@@ -85,7 +97,7 @@
       "desc": "Navigateur + téléchargeur d'APK par code court.",
       "desc_en": "Browser + APK downloader using short codes.",
       "source": {
-        "page": "https://d.apkpure.com/b/APK/com.esaba.downloader?versionCode=52"
+        "page": "https://www.dropbox.com/scl/fi/4y07zicxged49fkpyl2lz/Downloader-by-AFTVnews_1.4.5-ForGoogleAndroidTV_APKPure.apk?rlkey=ukbiydjvj1yzz5t6bdkzsmzky&dl=1"
       }
     },
     {
@@ -97,7 +109,7 @@
       "desc": "Navigateur web ultra léger.",
       "desc_en": "Ultra-light web browser.",
       "source": {
-        "url": "https://d.apkpure.com/b/APK/mark.via.gp?version=latest"
+        "url": "https://www.dropbox.com/scl/fi/xh2wpi3m9yi4wl2zb05s6/Via-Browser-Fast-Light_7.3.3_APKPure.apk?rlkey=30acc4d4u5pavvga04wqi5tyk&dl=1"
       }
     },
     {
@@ -124,6 +136,7 @@
     },
     {
       "id": "fast",
+      "icon": "https://play-lh.googleusercontent.com/Nogn52-r8GQ5crQSZTrzMVP6oLt6NGkLZU8kMt-i75L07zVcPGUxkftZK0AvQ_l8iWsLSiPs5Am2Ji_O1dAYuw=s0-br30",
       "name": "FAST Speed Test",
       "category": "tools",
       "package": "com.netflix.Speedtest",
@@ -131,7 +144,7 @@
       "desc_en": "Internet speed test by Netflix.",
       "unofficial": true,
       "source": {
-        "url": "https://d.apkpure.com/b/APK/com.netflix.Speedtest?version=latest"
+        "url": "https://www.dropbox.com/scl/fi/2nq5i1znoqxu6jzpnfb5f/FAST-Speed-Test_1.2.1_APKPure.apk?rlkey=i4xd1hjhfp0kncg42vfsmwbkj&dl=1"
       }
     },
     {
