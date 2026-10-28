@@ -44,6 +44,7 @@ ADB Pilot est donc une **réécriture complète pour Linux**, qui reprend l'ergo
 - **Télécommande Android TV** à l'écran : pavé directionnel, accueil, retour, récents, volume, muet, capture d'écran, et bouton d'alimentation (éteindre, redémarrer, recovery, bootloader…).
 - **scrcpy** intégré : choix de la résolution et enregistrement vidéo de la session (le son nécessite Android 11+).
 - Connexion Wi-Fi (IP + port, historique avec le nom des boîtiers), passage USB → Wi-Fi, appairage Android 11+. Un seul appareil connecté à la fois.
+- **Détection réseau** : bouton *Détecter* qui liste les appareils Android du réseau local avec leur nom (lu via ADB, mDNS Cast / Android TV / débogage sans fil, l'historique ou le réseau) et connexion en un clic.
 
 **Store** : installation en un clic d'applications utiles (SmartTube, VLC, Projectivy Launcher…), rangées par rubriques. L'APK est téléchargé sur le PC puis installé sur le boîtier ; la liste est mise à jour automatiquement depuis ce dépôt.
 
@@ -161,7 +162,7 @@ Tes fichiers dans `~/ADB_Pilot` (Windows : `%USERPROFILE%\ADB_Pilot`) sont conse
 ## Premiers pas
 
 - **USB** : active le *Débogage USB* dans les Options développeur de l'appareil, branche-le et accepte la demande d'autorisation. Si l'appareil apparaît en *no permissions*, vérifie que `android-sdk-platform-tools-common` est installé, puis débranche et rebranche.
-- **Wi-Fi** : active le *Débogage ADB réseau* sur la box, saisis son IP en haut à droite (port `Auto` = 5555), puis **GO !**. Le bouton historique permet de se reconnecter en un clic.
+- **Wi-Fi** : active le *Débogage ADB réseau* sur la box, saisis son IP en haut à droite (port `Auto` = 5555), puis **GO !** — ou clique sur **Détecter** pour la trouver automatiquement. Le bouton historique permet de se reconnecter en un clic.
 - **Android 11+ sans fil** : Outils → *Appairer*.
 
 ## Compiler depuis les sources
@@ -280,6 +281,7 @@ ADB Pilot is a **complete rewrite for Linux** that follows the workflow of ADB A
 - On-screen **Android TV remote**: D-pad, home, back, recents, volume, mute, screenshot, and a power button (shut down, reboot, recovery, bootloader…).
 - Built-in **scrcpy** launcher with resolution choice and session recording (audio requires Android 11+).
 - Wi-Fi connection (IP + port, history with box names), USB → Wi-Fi switch, Android 11+ pairing. One device connected at a time.
+- **Network detection**: a *Detect* button lists the Android devices on the local network with their name (read via ADB, mDNS Cast / Android TV / wireless debugging, history or the network) and connects in one click.
 
 **Store**: one-click install of useful apps (SmartTube, VLC, Projectivy Launcher…), sorted by category. The APK is downloaded to the PC, then installed on the box; the list is updated automatically from this repository.
 
@@ -397,7 +399,7 @@ Your files in `~/ADB_Pilot` (Windows: `%USERPROFILE%\ADB_Pilot`) are kept.
 ## Getting started
 
 - **USB**: enable *USB debugging* in the device's Developer options, plug it in and accept the authorization prompt. If the device shows up as *no permissions*, make sure `android-sdk-platform-tools-common` is installed, then unplug and replug it.
-- **Wi-Fi**: enable *ADB over network* on the box, type its IP in the top-right field (port `Auto` = 5555), then click **GO !**. The history button reconnects in one click.
+- **Wi-Fi**: enable *ADB over network* on the box, type its IP in the top-right field (port `Auto` = 5555), then click **GO !** — or click **Detect** to find it automatically. The history button reconnects in one click.
 - **Android 11+ wireless debugging**: Outils (Tools) → *Appairer* (Pair).
 
 ## Build from source

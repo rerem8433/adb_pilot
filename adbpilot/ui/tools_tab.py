@@ -261,13 +261,27 @@ class ToolsTab(QWidget):
                 stor = _("%s Go") % ("%.1f" % tot).replace(".", ",")
         rows = [(_("Modèle"), i.get("model")), (_("N° de série"), i.get("serial")),
                 (_("Processeur"), cpu), (_("Mémoire"), "\n".join(mem)),
-                (_("Stockage utilisateur"), stor), ("ABI", i.get("abi")),
+                (_("Stockage utilisateur"), stor), (_("Écran"), self._screen(sp)), ("ABI", i.get("abi")),
                 ("Android", android), ("ROM", i.get("build"))]
-        txt = _("<b style='font-size:12pt'>%s</b><br>") % html.escape(i.get("brand", "") or i.get("manufacturer", ""))
+        txt = _("<b style='font-size:12pt'>%s</b><br><span style='font-size:5pt'>&nbsp;</span><br>") % html.escape(i.get("brand", "") or i.get("manufacturer", ""))
         for k, v in rows:
             if v:
                 txt += _("<b>%s :</b><br>%s<br>") % (k, html.escape(v).replace("\n", "<br>"))
         self.lbl_info.setText(txt)
+
+    @staticmethod
+    def _screen(sp):
+        if not sp.get("res"):
+            return None
+        res = sp["res"].replace("x", " × ")
+        if sp.get("res_over") and sp["res_over"] != sp["res"]:
+            res += _(" (forcée : %s)") % sp["res_over"].replace("x", " × ")
+        dpi = sp.get("dpi")
+        if dpi:
+            res += "\n" + _("Densité %s dpi") % dpi
+            if sp.get("dpi_over") and sp["dpi_over"] != dpi:
+                res += _(" (forcée : %s)") % sp["dpi_over"]
+        return res
 
     # -- actions -----------------------------------------------------------
     def keyevent(self, code):

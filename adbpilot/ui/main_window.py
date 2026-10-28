@@ -155,7 +155,14 @@ class MainWindow(QMainWindow):
         self.hist_menu.aboutToShow.connect(self._fill_history)
         self.b_hist.setMenu(self.hist_menu)
         self._hdr_buttons.append(self.b_hist)
-        conn.addWidget(self.b_hist, 0, 1)
+        self.b_scan = QPushButton(_("Détecter"))
+        self.b_scan.setObjectName("scanBtn")
+        self.b_scan.setIcon(style.icon("search", "#ffffff"))
+        self.b_scan.setFixedHeight(30)
+        self.b_scan.setToolTip(_("Rechercher les appareils Android sur le réseau local"))
+        self.b_scan.clicked.connect(self._open_scan)
+        conn.addWidget(self.b_scan, 0, 1)
+        conn.addWidget(self.b_hist, 0, 3)
         self.b_go = QPushButton(_("GO !"))
         self.b_go.setObjectName("goBtn")
         self.b_go.setToolTip(_("Se connecter en Wi-Fi à l'IP saisie"))
@@ -172,27 +179,42 @@ class MainWindow(QMainWindow):
         self.port.currentTextChanged.connect(self._port_changed)
         lp = QLabel(_("Port :"))
         lp.setStyleSheet("font-size: 8pt;")
-        conn.addWidget(lp, 0, 3)
-        conn.addWidget(self.port, 0, 4)
+        prow = QHBoxLayout()
+        prow.setSpacing(4)
+        prow.addStretch(1)  # bord droit du champ Port aligné sur celui du champ IP
+        prow.addWidget(lp)
+        prow.addWidget(self.port)
+        conn.addLayout(prow, 1, 0)
         self.b_tcpip = QPushButton(_("Passer en Wi-Fi"))
         self.b_tcpip.setObjectName("tcpipBtn")
         self.b_tcpip.setToolTip(_("Active le débogage ADB en Wi-Fi sur l'appareil branché en USB "
                                 "(adb tcpip) puis s'y connecte"))
         self.b_tcpip.clicked.connect(lambda: self.tools_tab.to_wifi())
-        conn.addWidget(self.b_tcpip, 1, 2, 1, 3)
         r1.addLayout(conn)
         hl.addLayout(r1)
 
         r2 = QHBoxLayout()
+        # 3 zones : appareil (gauche) | recherche (centre) | vide (droite), gauche et droite de même largeur
+        left = QWidget()
+        r2l = QHBoxLayout(left)
+        r2l.setContentsMargins(0, 0, 0, 0)
+        r2.addWidget(left, 1)
+        r2, r2_outer = r2l, r2
         r2.addWidget(self._hdr_btn("refresh", _("Rafraîchir"), self._refresh_all))
         self.dev_label = QLabel(_("Aucun appareil connecté"))
         self.dev_label.setObjectName("deviceNameOff")
         r2.addWidget(self.dev_label)
-        self.dev_specs = QLabel("")
-        self.dev_specs.setObjectName("devSpecs")
         r2.addSpacing(10)
-        r2.addWidget(self.dev_specs)
+        self.b_info = QPushButton(_("Infos appareil"))
+        self.b_info.setObjectName("tcpipBtn")
+        self.b_info.setEnabled(False)
+        self.b_info.clicked.connect(self._show_specs)
+        self._specs_text = ""
+        r2.addWidget(self.b_info)
+        r2.addSpacing(6)
+        r2.addWidget(self.b_tcpip)
         r2.addStretch(1)
+        r2 = r2_outer
         self.search = QLineEdit()
         self.search.setPlaceholderText(_("Rechercher…"))
         self.search.setClearButtonEnabled(True)
@@ -201,6 +223,7 @@ class MainWindow(QMainWindow):
         self.search_action = self.search.addAction(style.icon("search", "#cccccc"), QLineEdit.LeadingPosition)
         self.search.textChanged.connect(lambda t: (self.apps.set_search(t), self.store_tab.set_search(t)))
         r2.addWidget(self.search)
+        r2.addWidget(QWidget(), 1)
         hl.addLayout(r2)
         root.addWidget(header)
 
@@ -255,6 +278,18 @@ class MainWindow(QMainWindow):
             if n >= total:
                 self._meta_overlay = False
                 self.overlay.finish(_("Noms et icônes à jour"))
+
+    def _open_scan(self):
+        from .scan_popup import ScanPopup
+        if getattr(self, "_scan", None) is None:
+            self._scan = ScanPopup(self)
+        self._scan.open_below(self.b_scan)
+
+    def connect_to(self, ip, port):
+        """Connexion depuis la détection réseau : remplit l'IP (et le port) puis lance la connexion."""
+        target = ip if str(port) in ("", "5555") else "%s:%s" % (ip, port)
+        self.ip.setText(target)
+        self.ctl.connect_ip(target)
 
     def _about(self):
         w = QWidget()
@@ -336,8 +371,9 @@ class MainWindow(QMainWindow):
                              else _("Se connecter en Wi-Fi à l'IP saisie"))
         self.b_tcpip.setVisible(not net)
         if dev is None or dev.state != "device":
-            self.dev_specs.setText("")
-            self.dev_specs.setToolTip("")
+            self._specs_text = ""
+            self.b_info.setText(_("Infos appareil"))
+            self.b_info.setEnabled(False)
 
     def _port_changed(self, t):
         t = t.strip()
@@ -397,7 +433,7 @@ class MainWindow(QMainWindow):
         if sp.get("android"):
             parts.append(_("Android %s") % sp["android"])
         warn = sp.get("fake") or sp.get("ram_fake")
-        self.dev_specs.setText(" · ".join(parts) + ("  ⚠" if warn else ""))
+        summary = " · ".join(parts)
         tip = [_("RAM détectée : %s") % sp.get("ram_exact", "?"),
                _("Stockage /data : %s") % sp.get("storage_exact", "?"),
                _("Android réel : %s (API %s) — lu dans framework-res.apk") % (sp.get("android", "?"), sp.get("sdk", "?")),
@@ -407,7 +443,14 @@ class MainWindow(QMainWindow):
         if sp.get("ram_fake"):
             tip.append(_("⚠ RAM truquée par la ROM : elle annonce %s Go, l'appareil n'en a que %s Go.")
                        % (sp["ram_fake"], sp.get("ram_gb", "?")))
-        self.dev_specs.setToolTip("\n".join(tip))
+        self._specs_text = summary + "\n\n" + "\n".join(tip)
+        self.b_info.setText(_("Infos appareil") + ("  ⚠" if warn else ""))
+        self.b_info.setToolTip(summary)
+        self.b_info.setEnabled(True)
+
+    def _show_specs(self):
+        if self._specs_text:
+            self.toast_w.show_msg(self._specs_text, 12000)
 
     def _connect_clicked(self):
         text = self.ip.text().strip()

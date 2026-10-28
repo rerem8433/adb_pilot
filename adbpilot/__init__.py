@@ -1,5 +1,5 @@
 APP_NAME = "ADB Pilot"
 APP_ID = "adbpilot"
-VERSION = "1.3.2"
+VERSION = "1.4.0"
 AUTHOR = "ParadoxXx Squad"
 HOMEPAGE = "https://github.com/rerem8433/adb_pilot"

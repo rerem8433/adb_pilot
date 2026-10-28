@@ -86,9 +86,13 @@ def qss(name: str) -> str:
                          border: 1px solid #4a74d6; border-radius: 3px; padding: 0px; }}
     QPushButton#goBtn:hover {{ background: #2d55b0; }}
     QPushButton#goBtn:disabled {{ background: #5d6676; color: #ddd; }}
+    QPushButton#scanBtn {{ background: rgba(255,255,255,0.10); color: {c['header_text']}; border: 1px solid #4a74d6;
+                          border-radius: 3px; padding: 0px 10px; font-weight: 600; }}
+    QPushButton#scanBtn:hover {{ background: rgba(74,116,214,0.35); }}
     QPushButton#tcpipBtn {{ font-size: 8pt; padding: 2px 6px; background: rgba(255,255,255,0.08);
                            color: {c['header_text']}; border: 1px solid #666; }}
     QPushButton#tcpipBtn:hover {{ background: rgba(255,255,255,0.18); }}
+    QPushButton#tcpipBtn:disabled {{ color: #8a8a8e; border-color: #444; }}
     #devSpecs {{ color: {'#c8c8cc' if name == 'dark' else '#dfe6ff'}; font-size: 10pt; }}
     #storeBody {{ background: {c['panel']}; }}
     #storeSection {{ font-size: 13pt; font-weight: 700; padding: 10px 2px 2px 2px; color: {c['text']}; }}

@@ -307,6 +307,8 @@ def device_specs(info: dict) -> dict:
     script = ("head -1 /proc/meminfo; echo @@TV; getprop ro.build.characteristics; "
               "pm list features 2>/dev/null | grep -ciE 'leanback|android.hardware.type.television'; "
               "echo @@DF; df -k /data 2>/dev/null || df /data; "
+              "echo @@STATF; stat -f -c '%S %b %f %a' /data 2>/dev/null; "
+              "echo @@WM; wm size 2>/dev/null; wm density 2>/dev/null; "
               "echo @@CPU; grep -iE '^(Hardware|model name|Processor)' /proc/cpuinfo | head -3; "
               "echo @@NCPU; ls -d /sys/devices/system/cpu/cpu[0-9]* 2>/dev/null | wc -l; "
               "echo @@FREQ; cat /sys/devices/system/cpu/cpu*/cpufreq/cpuinfo_max_freq 2>/dev/null; "
@@ -358,14 +360,21 @@ def device_specs(info: dict) -> dict:
             return float(mm.group(1).replace(",", ".")) * {"K": 1, "M": 1024, "G": 1048576, "T": 1073741824}[mm.group(2)]
         return None
     total_kb = used_kb = None
-    for ln in sec.get("DF", "").splitlines()[1:]:
-        parts = ln.split()
-        if len(parts) >= 4:
-            total_kb, used_kb, avail_kb = _kb(parts[1]), _kb(parts[2]), _kb(parts[3])
+    # 1) statfs (fiable) : taille de bloc, blocs totaux, libres, disponibles
+    st = sec.get("STATF", "").split()
+    if len(st) >= 4 and all(x.isdigit() for x in st[:4]):
+        bs, blocks, _free, avail = (int(x) for x in st[:4])
+        if bs and blocks:
+            total_kb = blocks * bs / 1024
+            used_kb = (blocks - avail) * bs / 1024  # inclut l'espace réservé, comme les Paramètres Android
+    # 2) sinon df : la ligne peut être coupée en deux quand le nom du périphérique est long (busybox)
+    if not total_kb:
+        toks = " ".join(sec.get("DF", "").splitlines()[1:]).split()
+        nums = [t for t in toks if _kb(t) is not None and not t.endswith("%")]
+        if len(nums) >= 3:
+            total_kb, used_kb, avail_kb = _kb(nums[0]), _kb(nums[1]), _kb(nums[2])
             if total_kb and avail_kb is not None:
-                used_kb = total_kb - avail_kb  # inclut l'espace réservé, comme dans les Paramètres Android
-            if total_kb:
-                break
+                used_kb = total_kb - avail_kb
     if total_kb:
         gb = total_kb / 1048576
         sp["storage_exact"] = _("%s Go utilisables") % _fmt_num(round(gb, 1))
@@ -373,6 +382,12 @@ def device_specs(info: dict) -> dict:
         sp["storage_total"] = gb
         if used_kb is not None:
             sp["storage_used"] = max(0.0, used_kb / 1048576)
+    wm = sec.get("WM", "")
+    for key, pat in (("res", r"Physical size:\s*(\d+x\d+)"), ("res_over", r"Override size:\s*(\d+x\d+)"),
+                     ("dpi", r"Physical density:\s*(\d+)"), ("dpi_over", r"Override density:\s*(\d+)")):
+        mm = re.search(pat, wm)
+        if mm:
+            sp[key] = mm.group(1)
     cpuinfo = sec.get("CPU", "")
     sp["soc"] = soc_name(info, cpuinfo)
     n = sec.get("NCPU", "").strip()
