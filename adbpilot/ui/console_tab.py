@@ -324,7 +324,7 @@ class ConsoleTab(QWidget):
         p = QProcess(self)
         p.setProcessChannelMode(QProcess.MergedChannels)
         p.readyRead.connect(lambda: self.append(
-            html.escape(bytes(p.readAll()).decode("utf-8", "replace").rstrip("\n")), "out"))
+            html.escape(bytes(p.readAll()).decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")), "out"))
 
         def fin(code, _s):
             if code != 0:
@@ -378,7 +378,7 @@ class ConsoleTab(QWidget):
         p = QProcess(self)
         p.setProcessChannelMode(QProcess.MergedChannels)
         p.readyRead.connect(lambda: self.append(
-            html.escape(bytes(p.readAll()).decode("utf-8", "replace").rstrip("\n")), "shell"))
+            html.escape(bytes(p.readAll()).decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")), "shell"))
         p.finished.connect(lambda *_: self.mode == "shell" and self.shell_proc is p and self._shell_died())
         p.start(adbcore.find_adb(), ["-s", adb.serial, "shell"])
         self.shell_proc = p
@@ -420,7 +420,7 @@ class ConsoleTab(QWidget):
             p = QProcess(self)
             p.setProcessChannelMode(QProcess.MergedChannels)
             p.readyRead.connect(lambda: self.append(
-                html.escape(bytes(p.readAll()).decode("utf-8", "replace").rstrip("\n")), "logcat"))
+                html.escape(bytes(p.readAll()).decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")), "logcat"))
             p.start(adbcore.find_adb(), ["-s", adb.serial, "logcat", "-v", "time", "-T", "200"])
             self.logcat_proc = p
             self.append(_(">> adb logcat (bouton Logcat pour arrêter)"), "cmd")

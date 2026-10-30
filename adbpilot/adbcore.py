@@ -115,8 +115,10 @@ class Adb:
             return Result(127, "", str(e))
         except subprocess.TimeoutExpired:
             return Result(124, "", "délai dépassé")
-        return Result(cp.returncode, cp.stdout.decode("utf-8", "replace"),
-                      cp.stderr.decode("utf-8", "replace"))
+        # Sous Windows, adb renvoie souvent des fins de ligne CRLF : on normalise (sinon les
+        # analyses « ligne par ligne », comme getprop, ne trouvent plus rien)
+        return Result(cp.returncode, cp.stdout.decode("utf-8", "replace").replace("\r\n", "\n"),
+                      cp.stderr.decode("utf-8", "replace").replace("\r\n", "\n"))
 
     def run_bytes(self, args, timeout=120, serial=True) -> bytes:
         if _CLOSING:
@@ -253,14 +255,32 @@ QUALCOMM = {"msm8917": "Snapdragon 425", "msm8937": "Snapdragon 430", "msm8940":
             "sm6150": "Snapdragon 675", "sm7150": "Snapdragon 730"}
 
 
-def soc_name(info: dict, cpuinfo: str = "") -> str:
+def soc_name(info: dict, cpuinfo: str = "", dt_compat: str = "") -> str:
+    # Amlogic : le nom de plateforme est souvent celui de la carte (ex. « franklin ») et ne dit
+    # rien de la puce ; le device-tree indique la vraie famille (« amlogic, sm1 » = S905X3…).
+    dt = (dt_compat or "").lower()
+    # amlogic-dt-id (ex. « sm1_s905x3_4g ») : nom exact de la puce choisi par le bootloader
+    m = re.search(r"(?:^|[^a-z0-9])(s9\d\d[a-z0-9]*|a311d|t9\d\d[a-z0-9]*)", dt)
+    if m:
+        return "Amlogic %s" % m.group(1).upper()
+    fams = re.findall(r"amlogic,\s*([a-z0-9]+)", dt)
+    fam = next((f for f in fams if f in AMLOGIC), None)
+    if fam:
+        # Les ROM S905X3 (sm1) reprennent souvent le device-tree « g12a » (S905X2) :
+        # le cœur Cortex-A55 (CPU part 0xd05) les distingue (S905X2 = Cortex-A53, 0xd03).
+        if fam in ("g12a", "sm1"):
+            return "Amlogic %s" % ("S905X3" if re.search(r"CPU part\s*:\s*0xd05", cpuinfo, re.I) else
+                                   "S905X3" if fam == "sm1" else "S905X2")
+        return "Amlogic %s" % AMLOGIC[fam]
     plat = (info.get("board") or "").lower()
     hw = (info.get("hardware") or "").lower()
     man, model = info.get("soc_manufacturer") or "", info.get("soc_model") or ""
     m = re.search(r"^Hardware\s*:\s*(.+)$", cpuinfo, re.M)
     hwline = m.group(1).strip() if m else ""
     if plat in AMLOGIC or hw == "amlogic" or "amlogic" in hwline.lower():
-        return "Amlogic %s" % AMLOGIC.get(plat, model or plat.upper())
+        if plat in AMLOGIC or model:
+            return "Amlogic %s" % AMLOGIC.get(plat, model)
+        return "Amlogic (%s)" % plat if plat and plat != "amlogic" else "Amlogic"
     if plat.startswith("rk") or hw.startswith("rk") or "rockchip" in hwline.lower():
         chip = plat if plat.startswith("rk3") else (re.search(r"rk\d+", hwline.lower()) or [plat or hw])[0]
         return "Rockchip %s" % chip.upper()
@@ -331,7 +351,9 @@ def device_specs(info: dict) -> dict:
               "echo @@DF; toybox df -k /data 2>/dev/null || df -k /data 2>/dev/null || df /data; "
               "echo @@STATF; stat -f -c '%S %b %f %a' /data 2>/dev/null; "
               "echo @@WM; wm size 2>/dev/null; wm density 2>/dev/null; "
-              "echo @@CPU; grep -iE '^(Hardware|model name|Processor)' /proc/cpuinfo | head -3; "
+              "echo @@DTCOMPAT; cat /sys/firmware/devicetree/base/amlogic-dt-id 2>/dev/null; echo; "
+              "cat /sys/firmware/devicetree/base/compatible 2>/dev/null; echo; "
+              "echo @@CPU; grep -iE '^(Hardware|model name|Processor)' /proc/cpuinfo | head -3; grep -m1 'CPU part' /proc/cpuinfo; "
               "echo @@NCPU; ls -d /sys/devices/system/cpu/cpu[0-9]* 2>/dev/null | wc -l; "
               "echo @@FREQ; cat /sys/devices/system/cpu/cpu*/cpufreq/cpuinfo_max_freq 2>/dev/null; "
               # RAM physique : les box truquées gonflent souvent MemTotal, pas zoneinfo / device-tree
@@ -411,7 +433,7 @@ def device_specs(info: dict) -> dict:
         if mm:
             sp[key] = mm.group(1)
     cpuinfo = sec.get("CPU", "")
-    sp["soc"] = soc_name(info, cpuinfo)
+    sp["soc"] = soc_name(info, cpuinfo, sec.get("DTCOMPAT", ""))
     n = sec.get("NCPU", "").strip()
     sp["cores"] = int(n) if n.isdigit() else None
     freqs = [int(x) for x in sec.get("FREQ", "").split() if x.isdigit()]

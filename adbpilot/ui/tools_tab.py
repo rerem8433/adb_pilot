@@ -406,7 +406,7 @@ class ToolsTab(QWidget):
         proc.setArguments(args)
         proc.setProcessChannelMode(QProcess.MergedChannels)
         proc.readyRead.connect(lambda: self.ctl.log.emit(
-            html.escape(bytes(proc.readAll()).decode("utf-8", "replace").rstrip()), "out"))
+            html.escape(bytes(proc.readAll()).decode("utf-8", "replace").replace("\r\n", "\n").rstrip()), "out"))
         def finished(code, _s):
             self.ctl.log.emit(_("scrcpy terminé (code %d)") % code, "info")
             if rec_file is not None and rec_file.is_file() and rec_file.stat().st_size > 0:
