@@ -20,6 +20,11 @@ def main():
     app.setApplicationName(APP_NAME)
     app.setDesktopFileName(APP_ID)
     app.setStyle("Fusion")
+    # Icône de l'application (barre des tâches Windows, Alt+Tab, toutes les fenêtres)
+    from PySide6.QtGui import QIcon
+    from .ui import style as _style
+    ico = os.path.join(os.path.dirname(sys.executable), "adbpilot.ico") if getattr(sys, "frozen", False) else ""
+    app.setWindowIcon(QIcon(ico) if ico and os.path.isfile(ico) else _style.logo_icon())
     from PySide6.QtCore import QLibraryInfo, QLocale, QTranslator
     tr = QTranslator(app)
     if tr.load(QLocale("fr_FR"), "qtbase", "_", QLibraryInfo.path(QLibraryInfo.TranslationsPath)):
