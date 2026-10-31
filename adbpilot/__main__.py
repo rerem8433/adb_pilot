@@ -10,6 +10,10 @@ def main():
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ParadoxXxSquad.ADBPilot")
         except Exception:  # noqa: BLE001
             pass
+    if sys.platform == "darwin" and getattr(sys, "frozen", False):
+        import threading
+        from .osutil import macos_unquarantine
+        threading.Thread(target=macos_unquarantine, daemon=True).start()
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtWidgets import QApplication

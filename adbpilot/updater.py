@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import HOMEPAGE, VERSION
-from .osutil import FROZEN, WINDOWS, app_arch, clean_env, ssl_context
+from .osutil import FROZEN, MACOS, WINDOWS, app_arch, app_bundle, clean_env, ssl_context
 
 REPO = "rerem8433/adb_pilot"
 API = "https://api.github.com/repos/%s/releases/latest" % REPO
@@ -39,7 +39,9 @@ def is_newer(remote: str, local: str = VERSION) -> bool:
 
 
 def install_kind() -> str:
-    """'deb' (paquet Linux), 'win-setup' (Windows installé), sinon 'manual' (portable / sources)."""
+    """'deb' (paquet Linux), 'win-setup' (Windows installé), 'mac-app' (bundle macOS), sinon 'manual'."""
+    if MACOS:
+        return "mac-app" if app_bundle() else "manual"
     if WINDOWS:
         if FROZEN and any(Path(sys.executable).parent.glob("unins*.exe")):
             return "win-setup"
@@ -54,6 +56,9 @@ def _pick_asset(assets: list, version: str) -> dict | None:
     kind = install_kind()
     if kind == "deb":
         pat = re.compile(r"^adbpilot_.*_amd64\.deb$")
+    elif kind == "mac-app":
+        arch = "arm64" if app_arch() == "arm64" else "x86_64"
+        pat = re.compile(r"macos-%s\.dmg$" % arch, re.I)
     elif kind == "win-setup":
         arch = "arm64" if app_arch() == "arm64" else "x64"
         pat = re.compile(r"windows-%s-setup\.exe$" % arch, re.I)
@@ -117,6 +122,28 @@ def run_windows_setup(path: Path):
     flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
     subprocess.Popen([str(path), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS"],
                      creationflags=flags, close_fds=True)
+
+
+def run_macos_update(dmg: Path):
+    """Monte le .dmg, copie la nouvelle app à côté de l'actuelle, puis un script détaché attend la
+    fermeture d'ADB Pilot pour remplacer l'app et la relancer."""
+    app = app_bundle()
+    if app is None:
+        raise RuntimeError("bundle introuvable")
+    mnt = Path(tempfile.mkdtemp(prefix="adbpilot-dmg-"))
+    subprocess.run(["hdiutil", "attach", "-nobrowse", "-quiet", "-mountpoint", str(mnt), str(dmg)],
+                   check=True, timeout=120)
+    try:
+        src = next(mnt.glob("*.app"))
+        new = app.with_name(app.name + ".new")
+        shutil.rmtree(new, ignore_errors=True)
+        subprocess.run(["ditto", str(src), str(new)], check=True, timeout=300)
+    finally:
+        subprocess.run(["hdiutil", "detach", "-quiet", str(mnt)], timeout=60)
+    subprocess.run(["xattr", "-dr", "com.apple.quarantine", str(new)], capture_output=True, timeout=60)
+    script = ('while kill -0 %d 2>/dev/null; do sleep 0.5; done; '
+              'rm -rf "%s" && mv "%s" "%s" && open "%s"' % (os.getpid(), app, new, app, app))
+    subprocess.Popen(["/bin/sh", "-c", script], start_new_session=True, close_fds=True)
 
 
 def terminal_install_cmd(path: Path) -> list[str]:

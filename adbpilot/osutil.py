@@ -1,4 +1,4 @@
-"""Différences Linux / Windows regroupées ici (dossiers, outils embarqués, terminaux, sous-processus)."""
+"""Différences Linux / Windows / macOS regroupées ici (dossiers, outils embarqués, terminaux, sous-processus)."""
 from __future__ import annotations
 
 import os
@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 
 WINDOWS = sys.platform == "win32"
+MACOS = sys.platform == "darwin"
+NO_APT = WINDOWS or MACOS  # pas de « sudo apt install » : on renvoie vers Paramètres → Télécharger
 EXE = ".exe" if WINDOWS else ""
 FROZEN = bool(getattr(sys, "frozen", False))
 
@@ -35,9 +37,13 @@ def app_dirs(app_id: str) -> tuple[Path, Path, Path]:
     """(config, cache, données) de l'application — les variables XDG gardent la priorité (tests).
 
     Linux   : ~/.config/adbpilot, ~/.cache/adbpilot, ~/.local/share/adbpilot
-    Windows : %APPDATA%\\adbpilot, %LOCALAPPDATA%\\adbpilot\\cache, %LOCALAPPDATA%\\adbpilot"""
+    Windows : %APPDATA%\\adbpilot, %LOCALAPPDATA%\\adbpilot\\cache, %LOCALAPPDATA%\\adbpilot
+    macOS   : ~/Library/Application Support/adbpilot (config + données), ~/Library/Caches/adbpilot"""
     home = Path.home()
-    if WINDOWS:
+    if MACOS:
+        sup = home / "Library" / "Application Support" / app_id
+        cfg, cache, data = sup, home / "Library" / "Caches" / app_id, sup / "data"
+    elif WINDOWS:
         roaming = Path(os.environ.get("APPDATA") or home / "AppData" / "Roaming")
         local = Path(os.environ.get("LOCALAPPDATA") or home / "AppData" / "Local") / app_id
         cfg, cache, data = roaming / app_id, local / "cache", local
@@ -49,12 +55,40 @@ def app_dirs(app_id: str) -> tuple[Path, Path, Path]:
             Path(env("XDG_DATA_HOME")) / app_id if env("XDG_DATA_HOME") else data)
 
 
-def bundled_tools_dir() -> Path | None:
-    """Dossier « tools » livré avec la version Windows (adb, fastboot, scrcpy)."""
-    if FROZEN:
-        d = Path(sys.executable).resolve().parent / "tools"
-        return d if d.is_dir() else None
+def app_bundle() -> Path | None:
+    """macOS : chemin de « ADB Pilot.app » quand l'appli tourne depuis son bundle."""
+    if MACOS and FROZEN:
+        p = Path(sys.executable).resolve()
+        for parent in p.parents:
+            if parent.suffix == ".app":
+                return parent
     return None
+
+
+def bundled_tools_dir() -> Path | None:
+    """Dossier « tools » livré avec les versions Windows / macOS (adb, fastboot, scrcpy)."""
+    if FROZEN:
+        exe_dir = Path(sys.executable).resolve().parent
+        for d in (exe_dir / "tools", exe_dir.parent / "Resources" / "tools"):
+            if d.is_dir():
+                return d
+    return None
+
+
+def macos_unquarantine():
+    """macOS : retire l'attribut de quarantaine des outils embarqués (adb, scrcpy).
+
+    Une fois l'appli autorisée par l'utilisateur, macOS bloquerait encore ces binaires
+    téléchargés avec elle ; ils sont dans le bundle de l'utilisateur, on peut les libérer."""
+    if not MACOS:
+        return
+    for d in (bundled_tools_dir(), app_bundle()):
+        if d:
+            try:
+                subprocess.run(["xattr", "-dr", "com.apple.quarantine", str(d)],
+                               capture_output=True, timeout=20)
+            except (OSError, subprocess.TimeoutExpired):
+                pass
 
 
 def is_exe(p) -> bool:
@@ -86,6 +120,15 @@ def open_terminal(cmd: list[str], title: str) -> str | None:
             return "console"
         except OSError:
             return None
+    if MACOS:
+        import shlex
+        line = " ".join(shlex.quote(c) for c in cmd).replace("\\", "\\\\").replace('"', '\\"')
+        try:
+            subprocess.Popen(["osascript", "-e", 'tell application "Terminal" to do script "%s"' % line,
+                              "-e", 'tell application "Terminal" to activate'], env=env)
+            return "Terminal"
+        except OSError:
+            return None
     cands = [
         ("gnome-terminal", ["--title", title, "--"] + cmd),
         ("mate-terminal", ["--title", title, "-x"] + cmd),
@@ -109,6 +152,15 @@ def desktop_notify(title: str, body: str):
     """Notification du bureau sous Linux (sous Windows, le toast interne suffit)."""
     if WINDOWS:
         return
+    if MACOS:
+        def esc(x):
+            return x.replace("\\", "\\\\").replace('"', '\\"')
+        try:
+            subprocess.Popen(["osascript", "-e", 'display notification "%s" with title "ADB Pilot" subtitle "%s"'
+                              % (esc(body), esc(title))])
+        except OSError:
+            pass
+        return
     exe = shutil.which("notify-send")
     if exe:
         try:
@@ -126,6 +178,8 @@ def os_name() -> str:
         except (IndexError, ValueError):
             pass
         return "Windows %s (%s) %s" % (rel, ver, machine())
+    if MACOS:
+        return "macOS %s %s" % (platform.mac_ver()[0] or "?", machine())
     if hasattr(platform, "freedesktop_os_release"):
         try:
             return platform.freedesktop_os_release().get("PRETTY_NAME", "Linux")
@@ -137,6 +191,16 @@ def os_name() -> str:
 def host_cpu_ram() -> tuple[str, int]:
     """(modèle du processeur, RAM en Go arrondie) de l'ordinateur."""
     cpu, ram = "", 0
+    if MACOS:
+        def sysctl(k):
+            try:
+                return subprocess.run(["sysctl", "-n", k], capture_output=True, text=True, timeout=5).stdout.strip()
+            except (OSError, subprocess.TimeoutExpired):
+                return ""
+        cpu = sysctl("machdep.cpu.brand_string")
+        mem = sysctl("hw.memsize")
+        ram = round(int(mem) / 1073741824) if mem.isdigit() else 0
+        return cpu, ram
     if WINDOWS:
         try:
             import ctypes

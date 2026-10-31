@@ -1,8 +1,8 @@
 # ADB Pilot
 
-**Gestionnaire d'appareils Android via ADB pour Linux et Windows, natif — sans Wine.**
+**Gestionnaire d'appareils Android via ADB pour Linux, Windows et macOS, natif — sans Wine.**
 
-ADB Pilot permet de gérer un téléphone ou une box Android TV depuis Ubuntu / Linux Mint ou Windows 10 / 11 : lister les applications avec leurs noms, icônes et versions, désactiver ou désinstaller le bloatware, installer des APK / XAPK / APKS / APKM, sauvegarder des applications, suivre les processus, piloter l'écran avec scrcpy et ouvrir une console adb / fastboot.
+ADB Pilot permet de gérer un téléphone ou une box Android TV depuis Ubuntu / Linux Mint, Windows 10 / 11 ou macOS (bêta) : lister les applications avec leurs noms, icônes et versions, désactiver ou désinstaller le bloatware, installer des APK / XAPK / APKS / APKM, sauvegarder des applications, suivre les processus, piloter l'écran avec scrcpy et ouvrir une console adb / fastboot.
 
 Développé par **ParadoxXx Squad** — [github.com/rerem8433/adb_pilot](https://github.com/rerem8433/adb_pilot)
 
@@ -45,7 +45,7 @@ ADB Pilot est donc une **réécriture complète pour Linux**, qui reprend l'ergo
 - **scrcpy** intégré : choix de la résolution et enregistrement vidéo de la session (le son nécessite Android 11+).
 - Connexion Wi-Fi (IP + port, historique avec le nom des boîtiers), passage USB → Wi-Fi, appairage Android 11+. Un seul appareil connecté à la fois.
 - **Détection réseau** : bouton *Détecter* qui liste les appareils Android du réseau local avec leur nom (lu via ADB, mDNS Cast / Android TV / débogage sans fil, l'historique ou le réseau) et connexion en un clic.
-- **Mises à jour** : ADB Pilot signale les nouvelles versions publiées sur GitHub et les installe en un clic (`.deb` sous Linux avec le mot de passe administrateur, installateur sous Windows).
+- **Mises à jour** : ADB Pilot signale les nouvelles versions publiées sur GitHub et les installe en un clic (`.deb` sous Linux avec le mot de passe administrateur, installateur sous Windows, `.dmg` sous macOS).
 
 **Store** : installation en un clic d'applications utiles (SmartTube, VLC, Projectivy Launcher…), rangées par rubriques. L'APK est téléchargé sur le PC puis installé sur le boîtier ; la liste est mise à jour automatiquement depuis ce dépôt.
 
@@ -94,6 +94,15 @@ Fonctionne sous X11 et Wayland.
 | Windows 10 (1809+) et Windows 11, x64 | ✅ Compatible |
 | Windows 11 ARM64 (Snapdragon X…) | ⚠️ Version ARM64 native **non testée sur un vrai appareil ARM** — merci de signaler tout problème. La version x64 fonctionne aussi en émulation. |
 
+**macOS — 🧪 BÊTA**
+
+| Système | Statut |
+|---|---|
+| macOS 12 Monterey et plus récent, Apple Silicon (M1, M2, M3, M4…) | 🧪 Bêta — **non testée sur un vrai Mac** |
+| macOS 12 Monterey et plus récent, Intel | 🧪 Bêta — **non testée sur un vrai Mac** |
+
+Les versions macOS sont compilées automatiquement mais n'ont pas encore été validées sur du matériel réel : merci de signaler tout problème dans les [Issues](https://github.com/rerem8433/adb_pilot/issues).
+
 ## Installation
 
 ### Linux
@@ -122,6 +131,21 @@ Une version **portable** (`…-portable.zip`, sans installation) est aussi dispo
 > **USB sous Windows** : l'appareil n'apparaît que si un pilote ADB est installé (*Google USB Driver* ou celui du fabricant : Samsung, Xiaomi…). Un bouton **Paramètres → Pilote USB ADB** ouvre la page de Google. En **Wi-Fi**, aucun pilote n'est nécessaire.
 >
 > Windows SmartScreen peut afficher « Windows a protégé votre ordinateur » (installateur non signé) : *Informations complémentaires* → *Exécuter quand même*.
+
+### macOS (bêta)
+
+1. Télécharge dans les [Releases](https://github.com/rerem8433/adb_pilot/releases) :
+   - `ADB-Pilot-X.Y.Z-macos-arm64.dmg` pour un Mac Apple Silicon (M1, M2, M3, M4…) ;
+   - `ADB-Pilot-X.Y.Z-macos-x86_64.dmg` pour un Mac Intel.
+
+   (Menu Pomme → *À propos de ce Mac* : « Puce Apple » = arm64, « Processeur Intel » = x86_64.)
+2. Ouvre le `.dmg` et glisse **ADB Pilot** sur le dossier **Applications**. **adb, fastboot et scrcpy sont inclus.**
+3. Premier lancement — l'application n'est pas signée par un compte développeur Apple (pas d'App Store), macOS la bloque une fois :
+   - **macOS 15 Sequoia et plus récent** : ouvre l'app (message de blocage → *OK*), puis *Réglages Système → Confidentialité et sécurité* → **Ouvrir quand même** ;
+   - **macOS 12 à 14** : clic droit (ou Ctrl+clic) sur l'app → *Ouvrir* → *Ouvrir* ;
+   - ou, dans le Terminal : `xattr -dr com.apple.quarantine "/Applications/ADB Pilot.app"`
+
+> **USB sous macOS** : aucun pilote n'est nécessaire. Les mises à jour s'installent en un clic depuis ADB Pilot (téléchargement du `.dmg` et remplacement de l'app).
 
 ### Dépendances (Linux)
 
@@ -158,6 +182,8 @@ sudo apt remove adbpilot
 
 Sous Windows : *Paramètres → Applications → ADB Pilot → Désinstaller*.
 
+Sous macOS : mets *ADB Pilot* (dossier Applications) à la corbeille.
+
 Tes fichiers dans `~/ADB_Pilot` (Windows : `%USERPROFILE%\ADB_Pilot`) sont conservés.
 
 ## Premiers pas
@@ -177,6 +203,8 @@ python packaging/build.py venv/lib/python3.*/site-packages out   # construire le
 
 **Windows** : les installateurs x64 et ARM64 sont construits automatiquement par GitHub Actions (`.github/workflows/windows.yml`) à chaque publication de release. En local, sous Windows : `pip install PySide6-Essentials==6.9.3 pyinstaller pillow certifi`, puis `python packaging/windows/build_windows.py` et Inno Setup avec `packaging/windows/adbpilot.iss`.
 
+**macOS** : les `.dmg` Apple Silicon et Intel sont construits par GitHub Actions (`.github/workflows/macos.yml`). En local, sur un Mac : `pip install PySide6-Essentials==6.9.3 pyinstaller pillow certifi`, puis `python packaging/macos/build_macos.py` (produit le `.dmg` de l'architecture du Mac).
+
 ## Dossiers
 
 Tout est centralisé dans `~/ADB_Pilot/` (Windows : `%USERPROFILE%\ADB_Pilot\`, sans espace, pratique en ligne de commande) :
@@ -189,7 +217,7 @@ Tout est centralisé dans `~/ADB_Pilot/` (Windows : `%USERPROFILE%\ADB_Pilot\`, 
 | `~/ADB_Pilot/apps/<appareil>/` | Sauvegardes : `nomappli_(paquet)_version.apk` (`.apks` pour les applis en plusieurs fichiers) |
 | `~/ADB_Pilot/store/` | APK téléchargés depuis l'onglet Store (gardés pour tes autres boîtiers) |
 
-La configuration est dans `~/.config/adbpilot/` et le cache des icônes dans `~/.cache/adbpilot/` (Windows : `%APPDATA%\adbpilot` et `%LOCALAPPDATA%\adbpilot`).
+La configuration est dans `~/.config/adbpilot/` et le cache des icônes dans `~/.cache/adbpilot/` (Windows : `%APPDATA%\adbpilot` et `%LOCALAPPDATA%\adbpilot` ; macOS : `~/Library/Application Support/adbpilot` et `~/Library/Caches/adbpilot`).
 
 ## Listes de debloat
 
@@ -234,9 +262,9 @@ Copyright © 2026 ParadoxXx Squad
 
 # ADB Pilot — English
 
-**Native Android device manager over ADB for Linux and Windows — no Wine needed.**
+**Native Android device manager over ADB for Linux, Windows and macOS — no Wine needed.**
 
-ADB Pilot lets you manage an Android phone or Android TV box from Ubuntu / Linux Mint or Windows 10 / 11. You can:
+ADB Pilot lets you manage an Android phone or Android TV box from Ubuntu / Linux Mint, Windows 10 / 11 or macOS (beta). You can:
 - list apps with their real names, icons and versions;
 - disable or uninstall bloatware;
 - install APK / XAPK / APKS / APKM files;
@@ -283,7 +311,7 @@ ADB Pilot is a **complete rewrite for Linux** that follows the workflow of ADB A
 - Built-in **scrcpy** launcher with resolution choice and session recording (audio requires Android 11+).
 - Wi-Fi connection (IP + port, history with box names), USB → Wi-Fi switch, Android 11+ pairing. One device connected at a time.
 - **Network detection**: a *Detect* button lists the Android devices on the local network with their name (read via ADB, mDNS Cast / Android TV / wireless debugging, history or the network) and connects in one click.
-- **Updates**: ADB Pilot notifies you of new versions published on GitHub and installs them in one click (`.deb` on Linux with the administrator password, installer on Windows).
+- **Updates**: ADB Pilot notifies you of new versions published on GitHub and installs them in one click (`.deb` on Linux with the administrator password, installer on Windows, `.dmg` on macOS).
 
 **Store**: one-click install of useful apps (SmartTube, VLC, Projectivy Launcher…), sorted by category. The APK is downloaded to the PC, then installed on the box; the list is updated automatically from this repository.
 
@@ -332,6 +360,15 @@ Works on both X11 and Wayland.
 | Windows 10 (1809+) and Windows 11, x64 | ✅ Compatible |
 | Windows 11 ARM64 (Snapdragon X…) | ⚠️ Native ARM64 build **not tested on real ARM hardware** — please report any issue. The x64 build also runs under emulation. |
 
+**macOS — 🧪 BETA**
+
+| System | Status |
+|---|---|
+| macOS 12 Monterey or newer, Apple Silicon (M1, M2, M3, M4…) | 🧪 Beta — **not tested on a real Mac** |
+| macOS 12 Monterey or newer, Intel | 🧪 Beta — **not tested on a real Mac** |
+
+The macOS builds are produced automatically but have not been validated on real hardware yet: please report any issue in [Issues](https://github.com/rerem8433/adb_pilot/issues).
+
 ## Installation
 
 ### Linux
@@ -360,6 +397,21 @@ A **portable** build (`…-portable.zip`, no installation) is also available.
 > **USB on Windows**: the device only shows up once an ADB driver is installed (*Google USB Driver* or the manufacturer's: Samsung, Xiaomi…). **Settings → ADB USB driver** opens Google's page. Over **Wi-Fi**, no driver is needed.
 >
 > Windows SmartScreen may say "Windows protected your PC" (unsigned installer): *More info* → *Run anyway*.
+
+### macOS (beta)
+
+1. Download from [Releases](https://github.com/rerem8433/adb_pilot/releases):
+   - `ADB-Pilot-X.Y.Z-macos-arm64.dmg` for an Apple Silicon Mac (M1, M2, M3, M4…);
+   - `ADB-Pilot-X.Y.Z-macos-x86_64.dmg` for an Intel Mac.
+
+   (Apple menu → *About This Mac*: "Chip Apple" = arm64, "Processor Intel" = x86_64.)
+2. Open the `.dmg` and drag **ADB Pilot** onto the **Applications** folder. **adb, fastboot and scrcpy are included.**
+3. First launch — the app is not signed with an Apple developer account (no App Store), so macOS blocks it once:
+   - **macOS 15 Sequoia and newer**: open the app (blocked message → *OK*), then *System Settings → Privacy & Security* → **Open Anyway**;
+   - **macOS 12 to 14**: right-click (or Ctrl+click) the app → *Open* → *Open*;
+   - or, in Terminal: `xattr -dr com.apple.quarantine "/Applications/ADB Pilot.app"`
+
+> **USB on macOS**: no driver needed. Updates install in one click from ADB Pilot (downloads the `.dmg` and replaces the app).
 
 ### Dependencies (Linux)
 
@@ -396,6 +448,8 @@ sudo apt remove adbpilot
 
 On Windows: *Settings → Apps → ADB Pilot → Uninstall*.
 
+On macOS: move *ADB Pilot* (Applications folder) to the Trash.
+
 Your files in `~/ADB_Pilot` (Windows: `%USERPROFILE%\ADB_Pilot`) are kept.
 
 ## Getting started
@@ -415,6 +469,8 @@ python packaging/build.py venv/lib/python3.*/site-packages out   # build the .de
 
 **Windows**: the x64 and ARM64 installers are built automatically by GitHub Actions (`.github/workflows/windows.yml`) whenever a release is published. Locally, on Windows: `pip install PySide6-Essentials==6.9.3 pyinstaller pillow certifi`, then `python packaging/windows/build_windows.py` and Inno Setup with `packaging/windows/adbpilot.iss`.
 
+**macOS**: the Apple Silicon and Intel `.dmg` files are built by GitHub Actions (`.github/workflows/macos.yml`). Locally, on a Mac: `pip install PySide6-Essentials==6.9.3 pyinstaller pillow certifi`, then `python packaging/macos/build_macos.py` (builds the `.dmg` for the Mac's architecture).
+
 ## Folders
 
 Everything lives in `~/ADB_Pilot/` (Windows: `%USERPROFILE%\ADB_Pilot\`; no spaces, easy to use from a terminal):
@@ -427,7 +483,7 @@ Everything lives in `~/ADB_Pilot/` (Windows: `%USERPROFILE%\ADB_Pilot\`; no spac
 | `~/ADB_Pilot/apps/<device>/` | Backups: `appname_(package)_version.apk` (`.apks` for split apps) |
 | `~/ADB_Pilot/store/` | APKs downloaded from the Store tab (kept for your other boxes) |
 
-Settings are stored in `~/.config/adbpilot/` and the icon cache in `~/.cache/adbpilot/` (Windows: `%APPDATA%\adbpilot` and `%LOCALAPPDATA%\adbpilot`).
+Settings are stored in `~/.config/adbpilot/` and the icon cache in `~/.cache/adbpilot/` (Windows: `%APPDATA%\adbpilot` and `%LOCALAPPDATA%\adbpilot`; macOS: `~/Library/Application Support/adbpilot` and `~/Library/Caches/adbpilot`).
 
 ## Debloat lists
 

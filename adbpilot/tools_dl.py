@@ -11,9 +11,10 @@ import zipfile
 from pathlib import Path
 
 from .config import DATA_DIR
-from .osutil import EXE, WINDOWS, ssl_context
+from .osutil import EXE, MACOS, WINDOWS, app_arch, ssl_context
 
-PT_URL = "https://dl.google.com/android/repository/platform-tools-latest-%s.zip" % ("windows" if WINDOWS else "linux")
+PT_URL = "https://dl.google.com/android/repository/platform-tools-latest-%s.zip" % (
+    "windows" if WINDOWS else "darwin" if MACOS else "linux")
 SCRCPY_API = "https://api.github.com/repos/Genymobile/scrcpy/releases/latest"
 UA = {"User-Agent": "adbpilot"}
 
@@ -79,12 +80,16 @@ def install_scrcpy(progress=None) -> str:
     meta = json.loads(_get(SCRCPY_API, timeout=30))
     if WINDOWS:  # pas de build ARM64 officiel : win64 tourne en émulation sur Windows ARM
         ok = lambda n: "win64" in n and n.endswith(".zip")  # noqa: E731
+    elif MACOS:
+        arch = "aarch64" if app_arch() == "arm64" else "x86_64"
+        ok = lambda n: "macos" in n and arch in n and n.endswith(".tar.gz")  # noqa: E731
     else:
         ok = lambda n: "linux" in n and "x86_64" in n and n.endswith(".tar.gz")  # noqa: E731
     asset = next((a for a in meta.get("assets", []) if ok(a["name"])), None)
     if not asset:
         raise RuntimeError("Pas de build %s dans la dernière version de scrcpy (%s)"
-                           % ("Windows 64 bits" if WINDOWS else "Linux x86_64", meta.get("tag_name")))
+                           % ("Windows 64 bits" if WINDOWS else "macOS" if MACOS else "Linux x86_64",
+                              meta.get("tag_name")))
     data = _get(asset["browser_download_url"], progress, timeout=120)
     dest = DATA_DIR / "scrcpy"
     tmp = DATA_DIR / "scrcpy.tmp"

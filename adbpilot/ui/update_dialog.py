@@ -114,6 +114,13 @@ class UpdateDialog(QDialog):
                                         self.state.setText(_("Installation… (mot de passe administrateur demandé)"))),
                             None)
                 return path, updater.install_deb(path)
+            if self.kind == "mac-app":
+                ctl.in_main(lambda _v: (self.bar.setMaximum(0), self.state.setText(_("Installation…"))), None)
+                try:
+                    updater.run_macos_update(path)
+                except Exception as e:  # noqa: BLE001
+                    return path, (False, str(e))
+                return path, (True, "")
             return path, None
         ctl.submit(work, done=self._downloaded)
 
@@ -124,6 +131,17 @@ class UpdateDialog(QDialog):
             self.state.setText(_("Échec du téléchargement : %s") % res)
             return
         path, inst = res
+        if self.kind == "mac-app":
+            if not inst[0]:
+                self._busy(False)
+                self.bar.hide()
+                self.state.setText(_("Échec de l'installation : %s") % inst[1])
+                return
+            self.state.setText(_("Mise à jour prête : ADB Pilot va redémarrer."))
+            QApplication.instance().processEvents()
+            self.main.close()
+            QApplication.instance().quit()
+            return
         if self.kind == "win-setup":
             self.state.setText(_("Lancement de l'installateur… ADB Pilot va se fermer puis redémarrer."))
             try:

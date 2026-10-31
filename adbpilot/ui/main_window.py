@@ -303,7 +303,7 @@ class MainWindow(QMainWindow):
             _("<h2>%s %s</h2>"
             "<p style='font-size:12pt'>Développé par <b>%s</b><br>"
             "<a href='%s'>%s</a></p>"
-            "<p>Gestionnaire d'appareils Android via ADB pour Linux et Windows, natif (Python + Qt6).</p>"
+            "<p>Gestionnaire d'appareils Android via ADB pour Linux, Windows et macOS, natif (Python + Qt6).</p>"
             "<ul><li>Liste des applications avec noms, icônes et versions, filtres, recherche</li>"
             "<li>Désactiver / activer / désinstaller (utilisateur 0) / restaurer, forcer l'arrêt, "
             "effacer les données ou le cache, sauvegarder les fichiers d'installation</li>"
@@ -325,6 +325,12 @@ class MainWindow(QMainWindow):
         lbl.setWordWrap(True)
         lbl.setTextInteractionFlags(Qt.TextBrowserInteraction)
         lay.addWidget(lbl)
+        if osutil.MACOS:
+            warn = QLabel(_("⚠ Version macOS en bêta : pas encore testée sur un vrai Mac. "
+                            "Merci de signaler tout problème sur GitHub."))
+            warn.setWordWrap(True)
+            warn.setStyleSheet("color:#ffb84d; font-weight:600;")
+            lay.addWidget(warn)
         if osutil.WINDOWS and osutil.machine() == "arm64":
             warn = QLabel(_("⚠ Version Windows ARM64 (Snapdragon…) : pas encore testée sur un vrai appareil ARM. "
                             "Merci de signaler tout problème sur GitHub."))

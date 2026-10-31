@@ -282,7 +282,7 @@ class ConsoleTab(QWidget):
         if prog == "fastboot":
             exe = adbcore.find_fastboot()
             if not exe:
-                self.append(_("[Erreur] : fastboot introuvable (Paramètres → Télécharger adb)") if osutil.WINDOWS
+                self.append(_("[Erreur] : fastboot introuvable (Paramètres → Télécharger adb)") if osutil.NO_APT
                             else _("[Erreur] : fastboot introuvable (sudo apt install fastboot)"), "err")
                 return None
             args = adbcore.split_cmd(raw)
