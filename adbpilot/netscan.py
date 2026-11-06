@@ -9,6 +9,7 @@ Sources du nom, de la plus précise à la moins précise :
 from __future__ import annotations
 
 import ipaddress
+import re
 import socket
 import struct
 import time
@@ -40,28 +41,85 @@ class Found:
 # Réseau local
 # ---------------------------------------------------------------------------
 
-def local_networks() -> list[ipaddress.IPv4Network]:
-    """Réseau(x) /24 de l'ordinateur (adresse de sortie vers Internet + adresses de la machine)."""
-    ips = set()
+COMMON_NETS = ("192.168.0.0/24", "192.168.1.0/24", "192.168.2.0/24")
+
+
+def _primary_ip() -> str | None:
+    """Adresse de la carte qui porte la route vers Internet (la vraie carte, pas Hyper-V/VMware/WSL)."""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("192.0.2.1", 9))  # aucun paquet n'est envoyé (UDP)
-        ips.add(s.getsockname()[0])
+        ip = s.getsockname()[0]
         s.close()
+        return ip
     except OSError:
-        pass
+        return None
+
+
+def _usable(ip) -> bool:
+    try:
+        a = ipaddress.IPv4Address(ip)
+    except ValueError:
+        return False
+    return a.is_private and not a.is_loopback and not a.is_link_local
+
+
+def local_networks() -> list[ipaddress.IPv4Network]:
+    """Réseau /24 de la carte principale (celle qui a la passerelle). Les cartes virtuelles
+    (Hyper-V, WSL, VMware, VirtualBox) ne sont prises qu'à défaut de carte principale."""
+    ip = _primary_ip()
+    if ip and _usable(ip):
+        return [ipaddress.IPv4Network(ip + "/24", strict=False)]
+    nets = []
     try:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
-            ips.add(info[4][0])
+            a = info[4][0]
+            if _usable(a):
+                n = ipaddress.IPv4Network(a + "/24", strict=False)
+                if n not in nets:
+                    nets.append(n)
     except OSError:
         pass
-    nets = []
-    for ip in ips:
-        a = ipaddress.IPv4Address(ip)
-        if a.is_private and not a.is_loopback and not a.is_link_local:
-            n = ipaddress.IPv4Network(ip + "/24", strict=False)
-            if n not in nets:
-                nets.append(n)
+    return nets
+
+
+def parse_networks(text: str) -> list[ipaddress.IPv4Network]:
+    """« 192.168.1.0/24, 10.0.0.x 172.16.5 » -> réseaux (au plus /22 pour garder un scan rapide)."""
+    out = []
+    for tok in re.split(r"[\s,;]+", text or ""):
+        tok = tok.strip().lower().replace(".x", ".0").replace(".*", ".0")
+        if not tok:
+            continue
+        if re.fullmatch(r"\d+\.\d+\.\d+", tok):
+            tok += ".0"
+        if "/" not in tok:
+            tok += "/24"
+        try:
+            n = ipaddress.IPv4Network(tok, strict=False)
+        except ValueError:
+            continue
+        if n.prefixlen < 22:
+            n = ipaddress.IPv4Network("%s/22" % n.network_address, strict=False)
+        if n not in out:
+            out.append(n)
+    return out
+
+
+def scan_networks(common=True, extra="", history=()) -> list[ipaddress.IPv4Network]:
+    """Réseaux à analyser : celui de l'ordinateur, puis les réseaux habituels des box
+    (192.168.0/1/2.x, joignables via le routeur), ceux de l'historique et ceux saisis à la main."""
+    nets = list(local_networks())
+    cands = []
+    if common:
+        cands += [ipaddress.IPv4Network(n) for n in COMMON_NETS]
+    for ip in history:
+        ip = str(ip).split(":")[0]
+        if _usable(ip):
+            cands.append(ipaddress.IPv4Network(ip + "/24", strict=False))
+    cands += parse_networks(extra)
+    for n in cands:
+        if not any(n.subnet_of(x) for x in nets):
+            nets.append(n)
     return nets
 
 
@@ -227,11 +285,11 @@ def _nice_model(props):
     return model.replace("_", " ").strip()
 
 
-def scan(port=5555, known_names=None, progress=None, stop=lambda: False) -> list[Found]:
+def scan(port=5555, known_names=None, progress=None, stop=lambda: False, nets=None) -> list[Found]:
     """progress(n, total, found_list) est appelé pendant le scan (depuis un fil de travail)."""
     known_names = known_names or {}
-    nets = local_networks()
-    hosts = [str(h) for n in nets for h in n.hosts()]
+    nets = nets if nets is not None else local_networks()
+    hosts = list(dict.fromkeys(str(h) for n in nets for h in n.hosts()))  # sans doublon, ordre conservé
     ports = [port] + ([5555] if port != 5555 else [])
     found: dict[str, Found] = {}
     total = len(hosts) + 1

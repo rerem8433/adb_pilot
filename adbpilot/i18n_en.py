@@ -533,4 +533,10 @@ EN = {
     "⚠ Version macOS en bêta : pas encore testée sur un vrai Mac. Merci de signaler tout problème sur GitHub.":
         "⚠ macOS build in beta: not yet tested on a real Mac. Please report any issue on GitHub.",
     "### Dossier de travail (adb pull / push / install) : %s": "### Working folder (adb pull / push / install): %s",
+    ">> Détection : analyse de %s": ">> Detect: scanning %s",
+    "Détection terminée : %d appareil(s) avec ADB, %d au total (%.0f s)": "Detection finished: %d device(s) with ADB, %d in total (%.0f s)",
+    "Détecter : analyser aussi 192.168.0.x, 192.168.1.x et 192.168.2.x": "Detect: also scan 192.168.0.x, 192.168.1.x and 192.168.2.x",
+    "ex. 10.0.0.x, 192.168.50.0/24": "e.g. 10.0.0.x, 192.168.50.0/24",
+    "Réseaux supplémentaires à analyser par « Détecter » (séparés par des virgules)": "Extra networks scanned by \"Detect\" (comma-separated)",
+    "Réseaux en plus :": "Extra networks:",
 }
