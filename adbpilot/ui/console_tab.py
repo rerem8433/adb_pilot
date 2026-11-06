@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (QComboBox, QGridLayout, QHBoxLayout, QLabel, QLin
 from .. import VERSION, adbcore
 from ..adbcore import adb
 from .. import osutil
-from ..config import config
+from ..config import config, user_dir
 from ..i18n import _, lang
 
 LEVEL_COLORS = {"dark": {"cmd": "#a9a9ad", "out": "#e8e8e8", "ok": "#4cd964", "err": "#ff5c5c",
@@ -210,6 +210,7 @@ class ConsoleTab(QWidget):
             self.append("### %s / RAM %d Go" % (html.escape(cpu), ram), "cmd")
         self.append("### %s / Python %s" % (html.escape(osutil.os_name()), platform.python_version()), "cmd")
         self.append("### ADB Pilot %s · adb : %s" % (VERSION, html.escape(adbcore.find_adb() or "introuvable")), "cmd")
+        self.append(_("### Dossier de travail (adb pull / push / install) : %s") % html.escape(str(user_dir())), "cmd")
         self.append("", "out")
 
     # -- sortie ------------------------------------------------------------
@@ -335,6 +336,9 @@ class ConsoleTab(QWidget):
             if done:
                 done(code)
         p.finished.connect(fin)
+        # Dossier de travail = ~/ADB_Pilot : « adb pull fichier » y dépose le fichier,
+        # « adb push fichier » / « adb install fichier.apk » le cherchent là (et pas dans Program Files)
+        p.setWorkingDirectory(str(user_dir()))
         p.start(exe, args)
         self._last = p
 
@@ -380,6 +384,7 @@ class ConsoleTab(QWidget):
         p.readyRead.connect(lambda: self.append(
             html.escape(bytes(p.readAll()).decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")), "shell"))
         p.finished.connect(lambda *_: self.mode == "shell" and self.shell_proc is p and self._shell_died())
+        p.setWorkingDirectory(str(user_dir()))
         p.start(adbcore.find_adb(), ["-s", adb.serial, "shell"])
         self.shell_proc = p
         self.append(_(">> adb shell  (session interactive : tape tes commandes, « exit » ou bouton "
@@ -421,6 +426,7 @@ class ConsoleTab(QWidget):
             p.setProcessChannelMode(QProcess.MergedChannels)
             p.readyRead.connect(lambda: self.append(
                 html.escape(bytes(p.readAll()).decode("utf-8", "replace").replace("\r\n", "\n").rstrip("\n")), "logcat"))
+            p.setWorkingDirectory(str(user_dir()))
             p.start(adbcore.find_adb(), ["-s", adb.serial, "logcat", "-v", "time", "-T", "200"])
             self.logcat_proc = p
             self.append(_(">> adb logcat (bouton Logcat pour arrêter)"), "cmd")

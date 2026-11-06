@@ -549,7 +549,7 @@ class MainWindow(QMainWindow):
         exe = adbcore.find_adb()
         cmd = [exe, "-s", adb.serial, "shell"]
         title = _("adb shell — %s") % (self.ctl.current.label)
-        term = osutil.open_terminal(cmd, title)
+        term = osutil.open_terminal(cmd, title, str(user_dir()))
         if term:
             self.ctl.log.emit(">> %s %s" % (term, " ".join(cmd)), "cmd")
             return

@@ -532,4 +532,5 @@ EN = {
     "Installation…": "Installing…",
     "⚠ Version macOS en bêta : pas encore testée sur un vrai Mac. Merci de signaler tout problème sur GitHub.":
         "⚠ macOS build in beta: not yet tested on a real Mac. Please report any issue on GitHub.",
+    "### Dossier de travail (adb pull / push / install) : %s": "### Working folder (adb pull / push / install): %s",
 }

@@ -107,22 +107,24 @@ def no_window() -> dict:
     return {}
 
 
-def open_terminal(cmd: list[str], title: str) -> str | None:
-    """Ouvre un terminal externe qui exécute cmd. Renvoie le nom du terminal, ou None."""
+def open_terminal(cmd: list[str], title: str, cwd: str | None = None) -> str | None:
+    """Ouvre un terminal externe qui exécute cmd (dans le dossier cwd). Renvoie le nom du terminal, ou None."""
     env = clean_env()
+    if cwd and not os.path.isdir(cwd):
+        cwd = None
     if WINDOWS:
         wt = shutil.which("wt")
         try:
             if wt:
-                subprocess.Popen([wt, "-w", "new", "--title", title] + cmd, env=env)
+                subprocess.Popen([wt, "-w", "new", "--title", title] + (["-d", cwd] if cwd else []) + cmd, env=env, cwd=cwd)
                 return "Windows Terminal"
-            subprocess.Popen(cmd, env=env, creationflags=subprocess.CREATE_NEW_CONSOLE)
+            subprocess.Popen(cmd, env=env, cwd=cwd, creationflags=subprocess.CREATE_NEW_CONSOLE)
             return "console"
         except OSError:
             return None
     if MACOS:
         import shlex
-        line = " ".join(shlex.quote(c) for c in cmd).replace("\\", "\\\\").replace('"', '\\"')
+        line = ((("cd %s && " % shlex.quote(cwd)) if cwd else "") + " ".join(shlex.quote(c) for c in cmd)).replace("\\", "\\\\").replace('"', '\\"')
         try:
             subprocess.Popen(["osascript", "-e", 'tell application "Terminal" to do script "%s"' % line,
                               "-e", 'tell application "Terminal" to activate'], env=env)
@@ -143,7 +145,7 @@ def open_terminal(cmd: list[str], title: str) -> str | None:
     for term, args in cands:
         path = shutil.which(term)
         if path:
-            subprocess.Popen([path] + args, env=env, start_new_session=True)
+            subprocess.Popen([path] + args, env=env, cwd=cwd, start_new_session=True)
             return term
     return None
 
