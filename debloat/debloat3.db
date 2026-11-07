@@ -7,8 +7,6 @@ com.android.inputmethod.pinyin
 com.android.managedprovisioning
 com.android.nfc
 com.android.printspooler
-com.android.providers.calendar
-com.android.providers.contacts
 com.android.vending
 com.android.wallpaperbackup
 com.android.zxl
