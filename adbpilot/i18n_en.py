@@ -539,4 +539,5 @@ EN = {
     "ex. 10.0.0.x, 192.168.50.0/24": "e.g. 10.0.0.x, 192.168.50.0/24",
     "Réseaux supplémentaires à analyser par « Détecter » (séparés par des virgules)": "Extra networks scanned by \"Detect\" (comma-separated)",
     "Réseaux en plus :": "Extra networks:",
+    "Port ouvert · pas de réponse ADB": "Port open · no ADB response",
 }

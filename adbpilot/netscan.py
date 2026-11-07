@@ -26,7 +26,8 @@ MDNS_SERVICES = ("_adb-tls-connect._tcp.local", "_adb._tcp.local", "_googlecast.
 class Found:
     ip: str
     port: int | None = None          # port ADB joignable
-    adb: str = ""                    # "open" (bannière lue), "auth" (autorisation requise), "tls" (Android 11+), ""
+    adb: str = ""                    # "open" (bannière lue), "auth" (autorisation requise), "tls" (Android 11+),
+    #                                  "port" (port ouvert mais pas de réponse ADB : autre service), ""
     name: str = ""                   # nom affiché
     model: str = ""                  # modèle lu dans la bannière ADB
     details: list = field(default_factory=list)  # infos secondaires (Cast, hôte réseau…)
@@ -34,7 +35,7 @@ class Found:
 
     @property
     def connectable(self):
-        return self.port is not None
+        return self.port is not None and self.adb in ("open", "auth", "tls")
 
 
 # ---------------------------------------------------------------------------
@@ -343,6 +344,8 @@ def scan(port=5555, known_names=None, progress=None, stop=lambda: False, nets=No
     def enrich(f: Found):
         if f.port and f.adb == "auth":
             state, props = adb_banner(f.ip, f.port)
+            if state == "":
+                f.adb = "port"  # le port répond mais ce n'est pas ADB (ou pas un appareil Android)
             if state == "open":
                 f.adb = "open"
                 f.model = _nice_model(props)
@@ -362,5 +365,5 @@ def scan(port=5555, known_names=None, progress=None, stop=lambda: False, nets=No
         list(ex.map(enrich, list(found.values())))
     if progress:
         progress(total, total, list(found.values()))
-    order = {"open": 0, "auth": 1, "tls": 2, "": 3}
+    order = {"open": 0, "auth": 1, "tls": 2, "port": 3, "": 4}
     return sorted(found.values(), key=lambda f: (order.get(f.adb, 3), tuple(int(x) for x in f.ip.split("."))))

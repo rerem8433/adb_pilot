@@ -19,6 +19,7 @@ STATE = {  # libellé, couleur, connectable
     "open": (lambda: _("ADB ouvert"), "#2fd06b", True),
     "auth": (lambda: _("ADB actif · autorisation à accepter sur l'écran"), "#7fa4ff", True),
     "tls": (lambda: _("Débogage sans fil (Android 11+)"), "#ffb84d", True),
+    "port": (lambda: _("Port ouvert · pas de réponse ADB"), "#77777b", False),
     "": (lambda: _("ADB fermé"), "#77777b", False),
 }
 
