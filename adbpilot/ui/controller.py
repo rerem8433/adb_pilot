@@ -10,7 +10,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from .. import adbcore, metacache
 from ..adbcore import Device, adb
 from ..config import config
-from ..osutil import WINDOWS
+from ..osutil import NO_APT
 from ..i18n import _
 
 
@@ -84,7 +84,7 @@ class Controller(QObject):
     # -- appareils ---------------------------------------------------------
     def start(self):
         if not adbcore.find_adb():
-            self.log.emit(_("adb introuvable : télécharge-le depuis l'onglet Paramètres.") if WINDOWS else
+            self.log.emit(_("adb introuvable : télécharge-le depuis l'onglet Paramètres.") if NO_APT else
                           _("adb introuvable. Installe-le (sudo apt install adb) ou télécharge-le "
                             "depuis l'onglet Paramètres."), "err")
         else:

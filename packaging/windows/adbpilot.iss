@@ -63,8 +63,9 @@ Name: "openwith"; Description: "{cm:OpenWith}"; Flags: unchecked
 Source: "{#SrcDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\ADB Pilot"; Filename: "{app}\ADB Pilot.exe"
-Name: "{autodesktop}\ADB Pilot"; Filename: "{app}\ADB Pilot.exe"; Tasks: desktopicon
+; Même AppUserModelID que l'appli (osutil / __main__) : Windows associe la fenêtre au raccourci et à son icône
+Name: "{autoprograms}\ADB Pilot"; Filename: "{app}\ADB Pilot.exe"; IconFilename: "{app}\adbpilot.ico"; AppUserModelID: "ParadoxXxSquad.ADBPilot"
+Name: "{autodesktop}\ADB Pilot"; Filename: "{app}\ADB Pilot.exe"; IconFilename: "{app}\adbpilot.ico"; AppUserModelID: "ParadoxXxSquad.ADBPilot"; Tasks: desktopicon
 
 [Registry]
 ; Option « openwith » : ADB Pilot apparaît dans « Ouvrir avec », sans devenir l'application par défaut

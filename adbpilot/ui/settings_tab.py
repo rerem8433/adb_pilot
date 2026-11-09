@@ -91,6 +91,12 @@ class SettingsTab(QWidget):
         f = QFormLayout(g)
         self._check(f, _("Se reconnecter à la dernière IP au démarrage"), "auto_reconnect")
         self._check(f, _("Ouvrir le shell dans la console dès la connexion"), "auto_shell")
+        self._check(f, _("Détecter : analyser aussi 192.168.0.x, 192.168.1.x et 192.168.2.x"), "scan_common_nets")
+        nets = QLineEdit(config.get("scan_extra_nets", ""))
+        nets.setPlaceholderText(_("ex. 10.0.0.x, 192.168.50.0/24"))
+        nets.setToolTip(_("Réseaux supplémentaires à analyser par « Détecter » (séparés par des virgules)"))
+        nets.textChanged.connect(lambda t: self._set("scan_extra_nets", t.strip()))
+        f.addRow(_("Réseaux en plus :"), nets)
         col1.addWidget(g)
         col1.addStretch(1)
 

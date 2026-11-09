@@ -129,8 +129,8 @@ def qss(name: str) -> str:
     QLineEdit, QComboBox, QSpinBox, QPlainTextEdit, QTextEdit {{ background: {c['input']}; border: 1px solid {c['border']};
                 padding: 4px; selection-background-color: {c['sel']}; }}
     QComboBox QAbstractItemView {{ background: {c['input']}; selection-background-color: {c['sel']}; }}
-    #console {{ background: {c['console']}; font-family: "DejaVu Sans Mono", "Ubuntu Mono", "Cascadia Mono", Consolas, monospace; font-size: 10pt; border: none; }}
-    #consoleInput {{ font-family: "DejaVu Sans Mono", "Ubuntu Mono", "Cascadia Mono", Consolas, monospace; border: none; border-bottom: 1px solid {c['border']}; background: transparent; }}
+    #console {{ background: {c['console']}; font-family: "DejaVu Sans Mono", "Ubuntu Mono", "Cascadia Mono", Consolas, Menlo, monospace; font-size: 10pt; border: none; }}
+    #consoleInput {{ font-family: "DejaVu Sans Mono", "Ubuntu Mono", "Cascadia Mono", Consolas, Menlo, monospace; border: none; border-bottom: 1px solid {c['border']}; background: transparent; }}
     QTableView {{ background: {c['row']}; alternate-background-color: {c['row_alt']}; gridline-color: transparent;
                   border: none; selection-background-color: {c['sel']}; selection-color: {c['text']}; }}
     QTableView::item {{ border-bottom: 1px solid {c['bg']}; padding-left: 4px; }}

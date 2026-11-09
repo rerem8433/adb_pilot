@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel
 from .. import adbcore
 from ..adbcore import adb
 from ..config import config, user_dir
-from ..osutil import WINDOWS, no_window
+from ..osutil import NO_APT, no_window
 from . import style
 from .dialogs import PairDialog
 from ..i18n import _
@@ -202,7 +202,7 @@ class ToolsTab(QWidget):
                 _("<span style='color:#2fd06b'>scrcpy v%s installé</span>") % v))
         else:
             self.lbl_scrcpy.setText(_("<span style='color:#ff5c5c'>scrcpy introuvable</span><br>"
-                                    "<span style='font-size:8pt'>Paramètres → Télécharger</span>") if WINDOWS else
+                                    "<span style='font-size:8pt'>Paramètres → Télécharger</span>") if NO_APT else
                                     _("<span style='color:#ff5c5c'>scrcpy introuvable</span><br>"
                                     "<span style='font-size:8pt'>sudo apt install scrcpy<br>ou Paramètres → Télécharger</span>"))
 
@@ -365,7 +365,7 @@ class ToolsTab(QWidget):
             return
         exe = adbcore.find_scrcpy()
         if not exe:
-            self.main.toast(_("scrcpy introuvable : Paramètres → Télécharger scrcpy.") if WINDOWS else
+            self.main.toast(_("scrcpy introuvable : Paramètres → Télécharger scrcpy.") if NO_APT else
                             _("scrcpy introuvable : sudo apt install scrcpy, ou Paramètres → Télécharger scrcpy."))
             return
         args = ["-s", adb.serial]

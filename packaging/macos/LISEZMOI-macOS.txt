@@ -1,0 +1,23 @@
+ADB Pilot pour macOS — version BÊTA
+
+FRANÇAIS
+1. Glisse « ADB Pilot » sur le dossier « Applications ».
+2. Premier lancement : l'app n'est pas signée par un compte développeur Apple, macOS la bloque.
+   - macOS 15 Sequoia et plus récent : ouvre l'app une fois (message de blocage), puis
+     Réglages Système → Confidentialité et sécurité → « Ouvrir quand même ».
+   - macOS 12 à 14 : clic droit (ou Ctrl+clic) sur l'app → Ouvrir → Ouvrir.
+   - Ou, dans le Terminal :  xattr -dr com.apple.quarantine "/Applications/ADB Pilot.app"
+3. adb, fastboot et scrcpy sont inclus. Aucun pilote USB n'est nécessaire sur Mac.
+Cette version n'a pas encore été testée sur un vrai Mac : merci de signaler tout problème
+sur https://github.com/rerem8433/adb_pilot/issues
+
+ENGLISH
+1. Drag "ADB Pilot" onto the "Applications" folder.
+2. First launch: the app is not signed with an Apple developer account, so macOS blocks it.
+   - macOS 15 Sequoia and newer: open the app once (blocked message), then
+     System Settings → Privacy & Security → "Open Anyway".
+   - macOS 12 to 14: right-click (or Ctrl+click) the app → Open → Open.
+   - Or, in Terminal:  xattr -dr com.apple.quarantine "/Applications/ADB Pilot.app"
+3. adb, fastboot and scrcpy are included. No USB driver is needed on a Mac.
+This build has not been tested on a real Mac yet: please report any issue at
+https://github.com/rerem8433/adb_pilot/issues

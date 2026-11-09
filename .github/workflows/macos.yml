@@ -1,0 +1,77 @@
+# Construit ADB Pilot pour macOS (Apple Silicon + Intel) et ajoute les .dmg à la release GitHub du tag.
+#   - publication d'une release (ou push d'un tag v*)  -> compilation + ajout à la release
+#   - Actions > "macOS build" > Run workflow  -> compilation seule (fichiers dans "Artifacts")
+# Versions macOS en BÊTA : non signées par un compte développeur Apple (signature ad hoc).
+name: macOS build
+
+on:
+  release:
+    types: [published]
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dépendances
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "PySide6-Essentials==6.9.3" pyinstaller pillow certifi
+          python -c "import platform, PySide6; print(platform.machine(), PySide6.__version__)"
+
+      - name: Test de démarrage (import + interface hors écran)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -c "import sys; sys.path.insert(0, '.'); from adbpilot import osutil; print(osutil.os_name(), osutil.app_arch())"
+          python -c "import sys; sys.path.insert(0, '.'); from PySide6.QtWidgets import QApplication; app = QApplication([]); from adbpilot.ui.main_window import MainWindow; w = MainWindow(); print('UI OK')"
+
+      - name: Compilation (PyInstaller + adb + scrcpy + dmg)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python packaging/macos/build_macos.py
+
+      - name: Vérification du bundle
+        run: |
+          APP="build/mac-${{ matrix.arch }}/dist/ADB Pilot.app"
+          file "$APP/Contents/MacOS/ADB Pilot"
+          codesign --verify --deep --strict "$APP" && echo "signature ad hoc OK"
+          "$APP/Contents/Resources/tools/platform-tools/adb" version
+          ls -la "$APP/Contents/Resources/tools/scrcpy"
+          ls -la dist/*.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: dist/*.dmg
+          if-no-files-found: error
+
+      - name: Ajout à la release GitHub
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.dmg

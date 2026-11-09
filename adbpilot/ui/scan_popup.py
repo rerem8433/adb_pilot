@@ -19,6 +19,7 @@ STATE = {  # libellé, couleur, connectable
     "open": (lambda: _("ADB ouvert"), "#2fd06b", True),
     "auth": (lambda: _("ADB actif · autorisation à accepter sur l'écran"), "#7fa4ff", True),
     "tls": (lambda: _("Débogage sans fil (Android 11+)"), "#ffb84d", True),
+    "port": (lambda: _("Port ouvert · pas de réponse ADB"), "#77777b", False),
     "": (lambda: _("ADB fermé"), "#77777b", False),
 }
 
@@ -139,8 +140,10 @@ class ScanPopup(QFrame):
         self._running = True
         self._stop = False
         self.b_again.setEnabled(False)
-        nets = netscan.local_networks()
+        hist = list(config.get("ip_history", [])) + list(dict(config.get("ip_names", {})).keys())
+        nets = netscan.scan_networks(bool(config.get("scan_common_nets", True)), config.get("scan_extra_nets", ""), hist)
         self._nets = ", ".join(str(n) for n in nets) or "?"
+        self.main.ctl.log.emit(_(">> Détection : analyse de %s") % self._nets, "cmd")
         self.sub.setText(_("Analyse de %s…") % self._nets)
         self.bar.setMaximum(0)
         self.bar.show()
@@ -153,7 +156,7 @@ class ScanPopup(QFrame):
         def run():
             try:
                 res = netscan.scan(port, names, progress=lambda n, tot, f: self.bridge.progress.emit(n, tot, f),
-                                   stop=lambda: self._stop)
+                                   stop=lambda: self._stop, nets=nets)
             except Exception:  # noqa: BLE001
                 res = []
             self.bridge.done.emit(res, time.time() - t0)
@@ -172,6 +175,11 @@ class ScanPopup(QFrame):
         n_adb = sum(1 for f in found if f.connectable)
         self.sub.setText(_("%s · analysé en %.0f s · %d appareil(s) avec ADB, %d au total")
                          % (self._nets, secs, n_adb, len(found)))
+        log = self.main.ctl.log.emit
+        for f in found:
+            log(html.escape("%s:%s  %s  %s" % (f.ip, f.port or "-", f.adb or "-", f.name or "")), "out")
+        log(_("Détection terminée : %d appareil(s) avec ADB, %d au total (%.0f s)") % (n_adb, len(found), secs),
+            "ok" if n_adb else "info")
         self._fill(found)
 
     # -- tableau ---------------------------------------------------------------
