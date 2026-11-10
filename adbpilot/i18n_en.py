@@ -540,4 +540,6 @@ EN = {
     "Réseaux supplémentaires à analyser par « Détecter » (séparés par des virgules)": "Extra networks scanned by \"Detect\" (comma-separated)",
     "Réseaux en plus :": "Extra networks:",
     "Port ouvert · pas de réponse ADB": "Port open · no ADB response",
+    "ADB · cet ordinateur est déjà autorisé": "ADB · this computer is already authorized",
+    "Nom de l'appareil": "Device name",
 }

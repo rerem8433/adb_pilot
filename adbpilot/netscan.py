@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 A_CNXN, A_AUTH = 0x4E584E43, 0x48545541
+A_OPEN, A_OKAY, A_CLSE, A_WRTE = 0x4E45504F, 0x59414B4F, 0x45534C43, 0x45545257
 MDNS_GROUP, MDNS_PORT = "224.0.0.251", 5353
 MDNS_SERVICES = ("_adb-tls-connect._tcp.local", "_adb._tcp.local", "_googlecast._tcp.local",
                  "_androidtvremote2._tcp.local")
@@ -26,7 +27,8 @@ MDNS_SERVICES = ("_adb-tls-connect._tcp.local", "_adb._tcp.local", "_googlecast.
 class Found:
     ip: str
     port: int | None = None          # port ADB joignable
-    adb: str = ""                    # "open" (bannière lue), "auth" (autorisation requise), "tls" (Android 11+),
+    adb: str = ""                    # "open" (bannière lue), "trusted" (cet ordinateur déjà autorisé),
+    #                                  "auth" (autorisation requise), "tls" (Android 11+),
     #                                  "port" (port ouvert mais pas de réponse ADB : autre service), ""
     name: str = ""                   # nom affiché
     model: str = ""                  # modèle lu dans la bannière ADB
@@ -35,7 +37,7 @@ class Found:
 
     @property
     def connectable(self):
-        return self.port is not None and self.adb in ("open", "auth", "tls")
+        return self.port is not None and self.adb in ("open", "trusted", "auth", "tls")
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +177,119 @@ def adb_banner(ip, port=5555, timeout=1.5) -> tuple[str, dict]:
         if k and v:
             props[k.strip()] = v.strip()
     return "open", props
+
+
+# ---------------------------------------------------------------------------
+# Nom donné à l'appareil (Paramètres → À propos → Nom), lu avec la clé adb de l'ordinateur.
+# La clé n'est utilisée que si l'appareil l'a DÉJÀ autorisée : on ne propose jamais la clé
+# publique, donc aucune demande d'autorisation ne s'affiche sur l'écran de l'appareil.
+# ---------------------------------------------------------------------------
+
+_SHA1_PREFIX = bytes.fromhex("3021300906052b0e03021a05000414")
+_KEY = None
+
+
+def _der(data, off):
+    """-> (tag, contenu, offset suivant) d'un élément DER."""
+    tag, ln = data[off], data[off + 1]
+    off += 2
+    if ln & 0x80:
+        n = ln & 0x7F
+        ln = int.from_bytes(data[off:off + n], "big")
+        off += n
+    return tag, data[off:off + ln], off + ln
+
+
+def _load_adbkey():
+    """(n, d) de ~/.android/adbkey (PEM PKCS#8 ou PKCS#1), ou None."""
+    global _KEY
+    if _KEY is not None:
+        return _KEY or None
+    _KEY = False
+    import base64
+    import os
+    for base in (os.environ.get("ANDROID_USER_HOME"), os.path.join(os.path.expanduser("~"), ".android")):
+        if not base:
+            continue
+        p = os.path.join(base, "adbkey")
+        try:
+            pem = open(p, encoding="ascii", errors="ignore").read()
+            der = base64.b64decode("".join(l for l in pem.splitlines() if l and not l.startswith("-----")))
+            _t, seq, _o = _der(der, 0)
+            # PKCS#8 : SEQUENCE { INTEGER 0, SEQUENCE algo, OCTET STRING { RSAPrivateKey } }
+            _t, _v, o = _der(seq, 0)
+            t2, c2, o2 = _der(seq, o)
+            if t2 == 0x30:
+                _t, inner, _o = _der(seq, o2)
+                _t, seq, _o = _der(inner, 0)
+            _t, _v, o = _der(seq, 0)          # version
+            _t, n, o = _der(seq, o)           # modulus
+            _t, _e, o = _der(seq, o)          # exposant public
+            _t, d, o = _der(seq, o)           # exposant privé
+            _KEY = (int.from_bytes(n, "big"), int.from_bytes(d, "big"))
+            return _KEY
+        except (OSError, ValueError, IndexError):
+            continue
+    return None
+
+
+def _sign(key, token):
+    n, d = key
+    k = (n.bit_length() + 7) // 8
+    t = _SHA1_PREFIX + token
+    em = b"\x00\x01" + b"\xff" * (k - len(t) - 3) + b"\x00" + t
+    return pow(int.from_bytes(em, "big"), d, n).to_bytes(k, "big")
+
+
+def _read_msg(s):
+    head = _recv(s, 24)
+    if len(head) < 24:
+        raise OSError("fin")
+    cmd, a0, a1, ln, _crc, _magic = struct.unpack("<6I", head)
+    data = _recv(s, ln) if ln else b""
+    if len(data) < ln:
+        raise OSError("fin")
+    return cmd, a0, a1, data
+
+
+def adb_device_name(ip, port=5555, timeout=2.0) -> tuple[bool, str]:
+    """(autorisé, nom personnalisé) : nom = settings global device_name si l'appareil autorise déjà
+    cet ordinateur, sinon (False, "")."""
+    key = _load_adbkey()
+    try:
+        with socket.create_connection((ip, port), timeout=timeout) as s:
+            s.settimeout(timeout)
+            s.sendall(_adb_msg(A_CNXN, 0x01000001, 256 * 1024, b"host::\0"))
+            signed = False
+            while True:
+                cmd, a0, _a1, data = _read_msg(s)
+                if cmd == A_CNXN:
+                    break
+                if cmd != A_AUTH or a0 != 1 or key is None or signed:
+                    return False, ""  # pas autorisé : on s'arrête là, sans proposer la clé (aucune fenêtre sur l'écran)
+                s.sendall(_adb_msg(A_AUTH, 2, 0, _sign(key, data)))
+                signed = True
+            s.sendall(_adb_msg(A_OPEN, 1, 0, b"shell:settings get global device_name\0"))
+            out = b""
+            remote = 0
+            while True:
+                cmd, a0, _a1, data = _read_msg(s)
+                if cmd == A_OKAY:
+                    remote = a0
+                elif cmd == A_WRTE:
+                    out += data
+                    s.sendall(_adb_msg(A_OKAY, 1, a0))
+                elif cmd == A_CLSE:
+                    break
+            if remote:
+                try:
+                    s.sendall(_adb_msg(A_CLSE, 1, remote))
+                except OSError:
+                    pass
+    except (OSError, struct.error):
+        return False, ""
+    name = out.decode("utf-8", "replace").strip()
+    return True, ("" if name.lower() in ("", "null") or "\n" in name or len(name) > 64 else name)
 
 
 # ---------------------------------------------------------------------------
@@ -342,6 +457,7 @@ def scan(port=5555, known_names=None, progress=None, stop=lambda: False, nets=No
 
     # Bannière ADB (modèle exact si pas d'autorisation requise) + nom réseau
     def enrich(f: Found):
+        cast = f.name if "cast" in f.sources or "atv" in f.sources else ""
         if f.port and f.adb == "auth":
             state, props = adb_banner(f.ip, f.port)
             if state == "":
@@ -358,12 +474,21 @@ def scan(port=5555, known_names=None, progress=None, stop=lambda: False, nets=No
                 f.sources.add("dns")
         except (OSError, UnicodeError):
             pass
+        trusted, dev_name = adb_device_name(f.ip, f.port) if f.port and f.adb in ("open", "auth") else (False, "")
+        if trusted and f.adb == "auth":
+            f.adb = "trusted"  # l'appareil a déjà autorisé cet ordinateur
+        if dev_name:
+            f.sources.add("name")
         hist = known_names.get(f.ip)
-        f.name = f.model or hist or f.name or (f.details[-1] if "dns" in f.sources and f.details else "") or f.ip
+        # Priorité : nom donné à l'appareil > nom Cast / Android TV > historique > modèle > nom réseau > IP
+        f.name = (dev_name or cast or hist or f.model or f.name
+                  or (f.details[-1] if "dns" in f.sources and f.details else "") or f.ip)
+        if f.model and f.model != f.name and f.model not in f.details:
+            f.details.insert(0, f.model)
 
     with ThreadPoolExecutor(max_workers=16) as ex:
         list(ex.map(enrich, list(found.values())))
     if progress:
         progress(total, total, list(found.values()))
-    order = {"open": 0, "auth": 1, "tls": 2, "port": 3, "": 4}
+    order = {"open": 0, "trusted": 0, "auth": 1, "tls": 2, "port": 3, "": 4}
     return sorted(found.values(), key=lambda f: (order.get(f.adb, 3), tuple(int(x) for x in f.ip.split("."))))

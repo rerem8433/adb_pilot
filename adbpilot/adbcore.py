@@ -231,6 +231,9 @@ def device_info() -> dict:
     info = {k: props.get(v, "") for k, v in PROPS.items()}
     if not info["serial"]:
         info["serial"] = adb.serial or ""
+    # Nom donné à l'appareil (Paramètres → À propos / Préférences de l'appareil → Nom)
+    n = adb.shell("settings get global device_name", timeout=10).out.strip()
+    info["device_name"] = "" if n.lower() in ("", "null") or "\n" in n or len(n) > 64 else n
     return info
 
 

@@ -259,7 +259,7 @@ class ToolsTab(QWidget):
                     ("%.1f" % used).replace(".", ","), ("%.1f" % tot).replace(".", ","), round(100 * used / tot))
             else:
                 stor = _("%s Go") % ("%.1f" % tot).replace(".", ",")
-        rows = [(_("Modèle"), i.get("model")), (_("N° de série"), i.get("serial")),
+        rows = [(_("Nom de l'appareil"), i.get("device_name")), (_("Modèle"), i.get("model")), (_("N° de série"), i.get("serial")),
                 (_("Processeur"), cpu), (_("Mémoire"), "\n".join(mem)),
                 (_("Stockage utilisateur"), stor), (_("Écran"), self._screen(sp)), ("ABI", i.get("abi")),
                 ("Android", android), ("ROM", i.get("build"))]

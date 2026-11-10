@@ -229,6 +229,12 @@ class Controller(QObject):
         def done(i):
             if isinstance(i, dict) and adb.serial == serial:
                 self.last_info = i
+                # Le nom personnalisé sert aux prochaines détections (même sans autorisation)
+                if i.get("device_name") and ":" in serial and self.current and self.current.is_network:
+                    names = dict(config.get("ip_names", {}))
+                    names[serial.split(":")[0]] = i["device_name"]
+                    config["ip_names"] = names
+                    config.save()
                 self.info_ready.emit(i)
                 self.specs_ready.emit(i.get("specs", {}))
         self.submit(work, done=done)
