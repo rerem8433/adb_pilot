@@ -62,7 +62,14 @@
       "desc": "Lecteur vidéo et audio universel.",
       "desc_en": "Universal video and audio player.",
       "source": {
-        "url": "https://get.videolan.org/vlc-android/last/VLC-Android-3.7.1-armeabi-v7a.apk"
+        "fdroid": "org.videolan.vlc",
+        "abi_suffix": {
+          "arm": 5,
+          "arm64": 6,
+          "x86": 7,
+          "x86_64": 8
+        },
+        "url": "https://f-droid.org/repo/org.videolan.vlc_13070205.apk"
       }
     },
     {
@@ -97,7 +104,7 @@
       "desc": "Navigateur + téléchargeur d'APK par code court.",
       "desc_en": "Browser + APK downloader using short codes.",
       "source": {
-        "page": "https://dl.dropboxusercontent.com/scl/fi/4y07zicxged49fkpyl2lz/Downloader-by-AFTVnews_1.4.5-ForGoogleAndroidTV_APKPure.apk?rlkey=ukbiydjvj1yzz5t6bdkzsmzky&dl=1"
+        "url": "https://dl.dropboxusercontent.com/scl/fi/4y07zicxged49fkpyl2lz/Downloader-by-AFTVnews_1.4.5-ForGoogleAndroidTV_APKPure.apk?rlkey=ukbiydjvj1yzz5t6bdkzsmzky&dl=1"
       }
     },
     {
